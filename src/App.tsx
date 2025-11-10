@@ -16,7 +16,7 @@ import Leaderboard from "./pages/Leaderboard";
 import Inbox from "./pages/Inbox";
 import NotFound from "./pages/NotFound";
 import AIChat from "./pages/AIChat";
-import AdminPanel from "./pages/Admin";
+import AdminPanel from "./pages/AdminPanel";
 import DMChat from "./pages/DMChat";
 
 const queryClient = new QueryClient();
