@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
+import rehypeHighlight from 'rehype-highlight';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -166,9 +168,9 @@ export function AIChatFloatingDraggable() {
               <span className="text-2xl leading-none">×</span>
             </Button>
           </div>
-          <Card className="flex-1 flex flex-col shadow-none border-none bg-transparent">
+          <Card className="flex-1 flex flex-col shadow-none border-none bg-transparent min-h-0">
             <CardContent className="flex-1 flex flex-col min-h-0 px-0 pt-2 pb-0">
-              <div className="flex-1 overflow-y-auto space-y-4 mb-4 px-3">
+              <div className="flex-1 min-h-0 max-h-[60vh] overflow-y-auto space-y-4 mb-4 px-3">
                 {messages.map((msg, i) => {
                   const isDark = typeof window !== 'undefined' && document.documentElement.classList.contains('dark');
                   const userBg = isDark ? 'bg-accent text-accent-foreground' : 'bg-accent text-accent-foreground';
@@ -202,7 +204,9 @@ export function AIChatFloatingDraggable() {
                             {msg.role === 'user' ? 'You' : 'AI Assistant'}
                           </p>
                         </div>
-                        <p className="text-sm whitespace-pre-line">{msg.content}</p>
+                        <div className="text-sm whitespace-pre-line markdown-body">
+                          <ReactMarkdown rehypePlugins={[rehypeHighlight]}>{msg.content}</ReactMarkdown>
+                        </div>
                       </div>
                     </div>
                   );

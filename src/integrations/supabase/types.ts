@@ -247,7 +247,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_dm_conversations: {
+        Args: { user_id: string }
+        Returns: { id: string; username: string; email: string }[]
+      }
     }
     Enums: {
       [_ in never]: never

@@ -1,3 +1,14 @@
+import DMChat from "./pages/DMChat";
+            <Route
+              path="/dms/:userId"
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <DMChat />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              }
+            />
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -15,6 +26,7 @@ import Leaderboard from "./pages/Leaderboard";
 import Inbox from "./pages/Inbox";
 import NotFound from "./pages/NotFound";
 import AIChat from "./pages/AIChat";
+import Admin from "./pages/Admin";
 
 const queryClient = new QueryClient();
 
@@ -93,6 +105,16 @@ const App = () => (
                 <ProtectedRoute>
                   <DashboardLayout>
                     <AIChat />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <Admin />
                   </DashboardLayout>
                 </ProtectedRoute>
               }

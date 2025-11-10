@@ -17,12 +17,47 @@ interface ChatMessage {
   user_id: string;
 }
 
+
 const Chat = () => {
   const { user } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [chatLocked, setChatLocked] = useState(false);
+  const [settingsLoading, setSettingsLoading] = useState(true);
+
+  // Fetch general_chat_locked setting
+  useEffect(() => {
+    const fetchSettings = async () => {
+      setSettingsLoading(true);
+      const { data } = await (supabase as any).from('settings').select('general_chat_locked').single();
+      setChatLocked(!!data?.general_chat_locked);
+      setSettingsLoading(false);
+    };
+    fetchSettings();
+
+    // Subscribe to realtime changes in settings
+    const channel = supabase
+      .channel('settings_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'settings',
+        },
+        (payload) => {
+          const newLocked = payload.new?.general_chat_locked;
+          setChatLocked(!!newLocked);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   useEffect(() => {
     fetchMessages();
@@ -156,18 +191,23 @@ const Chat = () => {
             <Input
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Type your message..."
+              placeholder={chatLocked ? "General chat is locked by admin" : "Type your message..."}
               className="flex-1"
+              disabled={chatLocked || settingsLoading}
             />
             <Button
               type="submit"
               size="icon"
               className="rounded-full bg-accent text-accent-foreground hover:bg-accent/80 shadow-sm transition-all flex items-center justify-center"
               style={{ minWidth: 44, minHeight: 44, padding: 0 }}
+              disabled={chatLocked || settingsLoading}
             >
               <Send className="h-5 w-5" />
             </Button>
           </form>
+          {chatLocked && (
+            <div className="text-center text-red-500 mt-2 text-sm">General chat is currently locked by an admin.</div>
+          )}
         </CardContent>
       </Card>
     </div>

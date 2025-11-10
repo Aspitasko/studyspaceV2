@@ -140,6 +140,15 @@ const Dashboard = () => {
               </p>
             </Link>
             <Link
+              to="/admin"
+              className="p-4 rounded-lg bg-card hover:bg-muted transition-smooth border border-border"
+            >
+              <h3 className="font-semibold mb-1">Admin Panel</h3>
+              <p className="text-sm text-muted-foreground">
+                Access admin features and controls
+              </p>
+            </Link>
+            <Link
               to="/ai-chat"
               className="p-4 rounded-lg bg-card hover:bg-muted transition-smooth border border-border"
             >

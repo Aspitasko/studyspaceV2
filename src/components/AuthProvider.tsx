@@ -31,10 +31,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-        
-        if (event === 'SIGNED_IN' && session) {
-          navigate('/');
-        }
+        // Removed forced redirect to home on sign-in
       }
     );
 

@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
+import rehypeHighlight from 'rehype-highlight';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Card, CardContent } from '@/components/ui/card';
@@ -85,9 +87,9 @@ export function AIChatFloating() {
         <SheetHeader>
           <SheetTitle>AI Assistant</SheetTitle>
         </SheetHeader>
-        <Card className="flex-1 flex flex-col shadow-none border-none bg-transparent">
+        <Card className="flex-1 flex flex-col shadow-none border-none bg-transparent min-h-0">
           <CardContent className="flex-1 flex flex-col min-h-0 px-0">
-            <div className="flex-1 overflow-y-auto space-y-4 mb-4">
+            <div className="flex-1 min-h-0 max-h-[60vh] overflow-y-auto space-y-4 mb-2 pb-2">
               {welcome && (
                 <div className="flex justify-center">
                   <div className="bg-muted text-muted-foreground rounded-lg p-4 text-center text-base font-medium shadow">
@@ -105,21 +107,24 @@ export function AIChatFloating() {
                     }`}
                   >
                     <p className="font-semibold text-sm mb-1">{msg.role === 'user' ? 'You' : 'AI'}</p>
-                    <p className="text-sm whitespace-pre-line">{msg.content}</p>
+                    <div className="text-sm whitespace-pre-line markdown-body">
+                      <ReactMarkdown rehypePlugins={[rehypeHighlight]}>{msg.content}</ReactMarkdown>
+                    </div>
                   </div>
                 </div>
               ))}
               <div ref={messagesEndRef} />
             </div>
-            <form onSubmit={handleSend} className="flex gap-2">
+            <form onSubmit={handleSend} className="flex gap-2 pt-2 pb-1 bg-background sticky bottom-0 z-10">
               <Input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Ask anything..."
                 className="flex-1"
                 disabled={loading}
+                style={{ minHeight: 40 }}
               />
-              <Button type="submit" size="icon" disabled={loading || !input.trim()}>
+              <Button type="submit" size="icon" disabled={loading || !input.trim()} style={{ minWidth: 44, minHeight: 44, padding: 0 }}>
                 {loading ? (
                   <span className="animate-spin">...</span>
                 ) : (

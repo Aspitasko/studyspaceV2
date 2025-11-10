@@ -8,6 +8,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Mail, UserPlus, Users, Trash2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+  const handleDeleteMessage = async (messageId: string) => {
+    const { error } = await supabase.from('direct_messages').delete().eq('id', messageId);
+    if (!error) {
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+      toast({ title: 'Message deleted' });
+    } else {
+      toast({ title: 'Error', description: 'Failed to delete message', variant: 'destructive' });
+    }
+  };
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface DirectMessage {
@@ -27,11 +37,14 @@ interface FriendRequest {
   status: string;
   created_at: string;
   friend: {
+    id: string;
     username: string;
     email: string;
   };
   user: {
+    id: string;
     username: string;
+    email: string;
   };
 }
 
@@ -92,8 +105,8 @@ const Inbox = () => {
       .from('friendships')
       .select(`
         *,
-        user:profiles!friendships_user_id_fkey(username),
-        friend:profiles!friendships_friend_id_fkey(username, email)
+        user:profiles!friendships_user_id_fkey(id, username, email),
+        friend:profiles!friendships_friend_id_fkey(id, username, email)
       `)
       .or(`user_id.eq.${user?.id},friend_id.eq.${user?.id}`)
       .order('created_at', { ascending: false });
@@ -162,7 +175,7 @@ const Inbox = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Inbox</h1>
+          <h1 className="text-3xl font-bold">Inbox (BETA FEATURE)</h1>
           <p className="text-muted-foreground">Messages and friend requests</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
@@ -237,48 +250,38 @@ const Inbox = () => {
         </TabsContent>
 
         <TabsContent value="friends" className="space-y-4">
-          {friendRequests.map((request) => (
-            <Card key={request.id} className="shadow-card hover:shadow-card-hover transition-smooth">
-              <CardContent className="pt-6 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-3">
-                  <Users className="h-5 w-5 text-accent" />
-                  <div>
-                    <p className="font-semibold">
-                      {request.user_id === user?.id ? request.friend.username : request.user.username}
-                    </p>
-                    <p className="text-sm text-muted-foreground capitalize">{request.status}</p>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  {request.status === 'pending' && request.friend_id === user?.id && (
-                    <Button
-                      size="sm"
-                      onClick={() => handleAcceptRequest(request.id)}
-                    >
-                      Accept
-                    </Button>
-                  )}
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => handleDeleteFriendRequest(request.id)}
-                    aria-label="Delete Friend Request"
-                  >
-                    <Trash2 className="h-5 w-5 text-destructive" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-
-          {friendRequests.length === 0 && (
+          {friendRequests.filter(r => r.status === 'accepted').length === 0 && (
             <Card className="shadow-card">
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <Users className="h-12 w-12 text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">No friend requests yet</p>
+                <p className="text-muted-foreground">No friends yet</p>
               </CardContent>
             </Card>
           )}
+          {friendRequests.filter(r => r.status === 'accepted').map((request) => {
+            // Figure out who the friend is (not the current user)
+            const friend = request.user_id === user?.id ? request.friend : request.user;
+            return (
+              <Card key={request.id} className="shadow-card hover:shadow-card-hover transition-smooth">
+                <CardContent className="pt-6 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-3">
+                    <Users className="h-5 w-5 text-accent" />
+                    <div>
+                      <p className="font-semibold">{friend.username}</p>
+                      {friend.email && <p className="text-sm text-muted-foreground">{friend.email}</p>}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    {friend.id && (
+                      <Link to={`/dms/${friend.id}`}>
+                        <Button size="sm" variant="secondary">Chat</Button>
+                      </Link>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </TabsContent>
       </Tabs>
     </div>
