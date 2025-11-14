@@ -99,11 +99,11 @@ export function ChangelogDialog() {
                 <span className="font-medium">Supabase Real-time</span>
                 <Badge variant="outline" className="bg-green-500/20 text-green-600 border-green-500/30">
                   <CheckCircle className="h-3 w-3 mr-1" />
-                  Operational
+                  Operationalx
                 </Badge>
               </div>
               <div className="flex items-center justify-between p-2 rounded-lg bg-green-500/10 border border-green-500/20">
-                <span className="font-medium">OpenRouter (AI)</span>
+                <span className="font-medium">OpenAI (AI)</span>
                 <Badge variant="outline" className="bg-green-500/20 text-green-600 border-green-500/30">
                   <CheckCircle className="h-3 w-3 mr-1" />
                   Operational
