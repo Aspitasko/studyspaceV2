@@ -2,16 +2,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import {
-  Card,
-  CardContent,
-} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Tabs,
-  TabsContent,
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
@@ -34,17 +28,11 @@ import {
   Check,
   X,
   Mail,
+  ArrowLeft,
 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
-/**
- * NOTE:
- * - This file expects Tailwind CSS utilities (backdrop-blur, bg-opacity, etc).
- * - If you want to extract the glass class to a global stylesheet, move the <style> contents to your CSS.
- */
-
-// -----------------------------
 // Types
-// -----------------------------
 interface Message {
   id: string;
   from_user_id: string;
@@ -66,9 +54,7 @@ interface Profile {
   username: string;
 }
 
-// -----------------------------
 // Debounce hook
-// -----------------------------
 function useDebounce<T>(value: T, delay = 300) {
   const [debounced, setDebounced] = useState(value);
   useEffect(() => {
@@ -78,45 +64,13 @@ function useDebounce<T>(value: T, delay = 300) {
   return debounced;
 }
 
-// -----------------------------
-// Small UI helpers
-// -----------------------------
-function EmptyCard({ children }: { children: React.ReactNode }) {
-  return (
-    <Card className="bg-transparent border border-border/10">
-      <CardContent className="p-6 text-center text-muted-foreground/70">{children}</CardContent>
-    </Card>
-  );
-}
-
-function ConfirmDialog({ open, onClose, onConfirm, title, description }: any) {
-  return (
-    <AlertDialog open={open} onOpenChange={(val) => !val && onClose()}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription>{description}</AlertDialogDescription>
-        </AlertDialogHeader>
-        <div className="flex gap-3 mt-4">
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm} className="bg-destructive text-destructive-foreground">
-            Confirm
-          </AlertDialogAction>
-        </div>
-      </AlertDialogContent>
-    </AlertDialog>
-  );
-}
-
-// -----------------------------
 // Main Component
-// -----------------------------
 export default function Inbox() {
   const navigate = useNavigate();
 
   // user + data
   const [user, setUser] = useState<any>(null);
-  const [messages, setMessages] = useState<Message[]>([]); // inbox items (recent incoming messages)
+  const [messages, setMessages] = useState<Message[]>([]);
   const [friendRequests, setFriendRequests] = useState<Friendship[]>([]);
   const [friends, setFriends] = useState<Profile[]>([]);
   const [allUsers, setAllUsers] = useState<Profile[]>([]);
@@ -127,7 +81,7 @@ export default function Inbox() {
   const [newMessage, setNewMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearch = useDebounce(searchQuery, 350);
-  const [activeTab, setActiveTab] = useState<'discover' | 'pending' | 'friends' | 'messages'>('discover');
+  const [activeTab, setActiveTab] = useState<'discover' | 'pending' | 'friends' | 'messages'>('messages');
 
   // dialogs
   const [confirmDialog, setConfirmDialog] = useState<null | { title: string; description: string; onConfirm: () => void }>(null);
@@ -138,9 +92,7 @@ export default function Inbox() {
   // autoscroll ref for chat area
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
 
-  // -----------------------------
   // Auth: get current user
-  // -----------------------------
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -160,9 +112,7 @@ export default function Inbox() {
     };
   }, [navigate]);
 
-  // -----------------------------
   // Fetch helpers (memoized)
-  // -----------------------------
   const fetchMessages = useCallback(async () => {
     if (!user?.id) return;
     const { data, error } = await supabase
@@ -192,13 +142,12 @@ export default function Inbox() {
       console.error('fetchFriendRequests error', error);
       return;
     }
-    setFriendRequests(data || []);
+    setFriendRequests((data as Friendship[]) || []);
   }, [user?.id]);
 
   const fetchFriends = useCallback(async () => {
     if (!user?.id) return;
 
-    // fetch accepted where user is sender or receiver
     const { data: sentRequests, error: sentError } = await supabase
       .from('friendships')
       .select('friend_id')
@@ -270,9 +219,7 @@ export default function Inbox() {
     [user?.id]
   );
 
-  // -----------------------------
   // Actions
-  // -----------------------------
   const handleSendMessage = useCallback(async () => {
     if (!newMessage.trim() || !selectedFriend || !user?.id) return;
     const payload = {
@@ -281,7 +228,6 @@ export default function Inbox() {
       content: newMessage.trim(),
     };
     setNewMessage('');
-    // optimistic UI: append locally
     const optimistic: Message = {
       id: `tmp-${Date.now()}`,
       ...payload,
@@ -292,31 +238,25 @@ export default function Inbox() {
     const { data, error } = await supabase.from('direct_messages').insert([payload]).select().single();
     if (error) {
       console.error('send message error', error);
-      // remove optimistic
       setChatMessages((s) => s.filter((m) => m.id !== optimistic.id));
       return;
     }
 
-    // replace optimistic with server message (if ids differ)
     setChatMessages((s) => {
       const replaced = s.map((m) => (m.id === optimistic.id ? data : m));
-      // if not found, append
       if (!replaced.some((m) => m.id === data.id)) replaced.push(data);
       return replaced;
     });
 
-    // update inbox
     fetchMessages();
   }, [newMessage, selectedFriend, user?.id, fetchMessages]);
 
   const handleDeleteMessage = useCallback((messageId: string) => {
-    // show confirm
     setConfirmDialog({
       title: 'Delete message',
       description: 'This will permanently delete the message.',
       onConfirm: async () => {
         setConfirmDialog(null);
-        // optimistic remove
         setChatMessages((s) => s.filter((m) => m.id !== messageId));
         const { error } = await supabase.from('direct_messages').delete().eq('id', messageId);
         if (error) console.error('delete message error', error);
@@ -326,7 +266,6 @@ export default function Inbox() {
 
   const handleSendFriendRequest = useCallback(async (friendId: string) => {
     if (!user?.id) return;
-    // optimistic pattern: try insert
     try {
       await supabase.from('friendships').insert([{ user_id: user.id, friend_id: friendId, status: 'pending' }]);
       await fetchAllUsers();
@@ -365,16 +304,13 @@ export default function Inbox() {
     });
   }, [user?.id, fetchFriends]);
 
-  // -----------------------------
   // Real-time subscription for messages + friendships
-  // -----------------------------
   useEffect(() => {
     if (!user?.id) return;
 
     const msgChannel = supabase
       .channel(`inbox-messages-${user.id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'direct_messages' }, () => {
-        // re-fetch inbox and open chat
         fetchMessages();
         if (selectedFriend) fetchChatMessages(selectedFriend.id);
       })
@@ -394,403 +330,356 @@ export default function Inbox() {
     };
   }, [user?.id, selectedFriend, fetchMessages, fetchChatMessages, fetchFriendRequests, fetchFriends]);
 
-  // -----------------------------
   // Initial data load once authenticated
-  // -----------------------------
   useEffect(() => {
     if (!user?.id) return;
     setLoading(true);
     Promise.all([fetchMessages(), fetchFriendRequests(), fetchFriends(), fetchAllUsers()]).finally(() => setLoading(false));
   }, [user?.id, fetchMessages, fetchFriendRequests, fetchFriends, fetchAllUsers]);
 
-  // -----------------------------
   // Search filtering
-  // -----------------------------
   const discoverList = useMemo(() => {
     if (!debouncedSearch) return allUsers;
     const q = debouncedSearch.toLowerCase();
     return allUsers.filter((u) => u.username.toLowerCase().includes(q));
   }, [allUsers, debouncedSearch]);
 
-  // -----------------------------
   // Autoscroll chat area on messages change
-  // -----------------------------
   useEffect(() => {
     const el = chatScrollRef.current;
     if (!el) return;
-    // smooth scroll to bottom
     el.scrollTop = el.scrollHeight;
   }, [chatMessages]);
 
-  // -----------------------------
-  // UI building blocks
-  // -----------------------------
-  const leftSidebar = (
-    <div className="w-72 flex-shrink-0">
-      <div className="glass p-4 rounded-xl">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2 text-foreground/90">
-            <Users className="w-5 h-5" />
-            <h3 className="text-sm font-semibold">Friends</h3>
-          </div>
-          <div className="text-xs text-muted-foreground/70">{friends.length}</div>
-        </div>
+  // Main layout
+  return (
+    <div className="">
+      {/* Animated background */}
+      <div className="">
+        <div className="" />
+        <div className="" />
+      </div>
 
-        <ScrollArea className="h-64">
-          <div className="space-y-2">
-            {friends.length === 0 ? (
-              <p className="text-xs text-muted-foreground/70">No friends yet</p>
-            ) : (
-              friends.map((f) => (
-                <div key={f.id} className="flex items-center justify-between gap-2">
+      {/* Header */}
+      <div className="relative z-10 px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-white">Messages</h1>
+            <p className="text-sm text-white/40">Direct messaging & friends</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="bg-blue-500/20 text-blue-200 border-blue-400/30">
+              {friends.length} friends
+            </Badge>
+            {friendRequests.length > 0 && (
+              <Badge variant="destructive" className="bg-red-500/20 text-red-200 border-red-400/30">
+                {friendRequests.length} pending
+              </Badge>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Main content area */}
+      <div className="relative z-10 flex-1 flex gap-4 px-6 pb-6 overflow-hidden">
+        {/* Left sidebar */}
+        <div className="w-80 flex flex-col gap-3">
+          {/* Search and tabs */}
+          <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-4 space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+              <Input
+                placeholder="Search..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-white/40"
+              />
+            </div>
+
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
+              <TabsList className="grid grid-cols-4 w-full bg-white/5 border border-white/10">
+                <TabsTrigger value="messages" title="Messages" className="data-[state=active]:bg-blue-500/30">
+                  <MessageSquare className="w-4 h-4" />
+                </TabsTrigger>
+                <TabsTrigger value="friends" title="Friends" className="data-[state=active]:bg-blue-500/30">
+                  <Users className="w-4 h-4" />
+                </TabsTrigger>
+                <TabsTrigger value="pending" title="Pending" className="data-[state=active]:bg-blue-500/30 relative">
+                  <Mail className="w-4 h-4" />
+                  {friendRequests.length > 0 && (
+                    <span className="absolute top-1 right-1 w-2 h-2 bg-red-400 rounded-full" />
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="discover" title="Discover" className="data-[state=active]:bg-blue-500/30">
+                  <UserPlus className="w-4 h-4" />
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+
+          {/* List area - scrollable */}
+          <div className="flex-1 space-y-2 overflow-y-auto pr-2">
+            {activeTab === 'messages' &&
+              (messages.length === 0 ? (
+                <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-6 text-center">
+                  <Mail className="w-8 h-8 text-white/40 mx-auto mb-2" />
+                  <h3 className="font-semibold text-white mb-1">No conversations</h3>
+                  <p className="text-sm text-white/60">Start by discovering or adding friends</p>
+                </div>
+              ) : (
+                messages.map((m) => {
+                  const sender = friends.find((f) => f.id === m.from_user_id) || allUsers.find((u) => u.id === m.from_user_id) || { username: 'Unknown', id: m.from_user_id };
+                  const isSelected = selectedFriend?.id === m.from_user_id;
+                  return (
+                    <button
+                      key={m.id}
+                      onClick={() => {
+                        setSelectedFriend({ id: sender.id, username: sender.username } as Profile);
+                        fetchChatMessages(sender.id);
+                      }}
+                      className={`w-full rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-3 text-left transition-all ${
+                        isSelected ? 'border-blue-400/50 bg-blue-500/10' : 'hover:bg-white/10'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <p className="font-medium text-sm text-white truncate">{sender.username}</p>
+                        <span className="text-xs text-white/50 whitespace-nowrap">{new Date(m.created_at).toLocaleDateString()}</span>
+                      </div>
+                      <p className="text-xs text-white/60 line-clamp-2">{m.content}</p>
+                    </button>
+                  );
+                })
+              ))}
+
+            {activeTab === 'friends' &&
+              (friends.length === 0 ? (
+                <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-6 text-center">
+                  <Users className="w-8 h-8 text-white/40 mx-auto mb-2" />
+                  <h3 className="font-semibold text-white mb-1">No friends</h3>
+                  <p className="text-sm text-white/60">Add friends to get started</p>
+                </div>
+              ) : (
+                friends.map((f) => (
                   <button
+                    key={f.id}
                     onClick={() => {
                       setSelectedFriend(f);
                       fetchChatMessages(f.id);
                     }}
-                    className={`text-left truncate flex-1 px-3 py-2 rounded-lg transition-all text-sm ${selectedFriend?.id === f.id ? 'bg-primary/80 text-primary-foreground shadow-md' : 'hover:bg-muted/40'}`}
+                    className={`w-full rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-3 text-left transition-all ${
+                      selectedFriend?.id === f.id ? 'border-blue-400/50 bg-blue-500/10' : 'hover:bg-white/10'
+                    }`}
                   >
-                    {f.username}
-                  </button>
-                  <Button size="icon" variant="ghost" onClick={() => handleRemoveFriend(f.id)}>
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
-              ))
-            )}
-          </div>
-        </ScrollArea>
-
-        <div className="mt-4">
-          <Card className="glass p-1">
-            <CardContent className="p-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Mail className="w-4 h-4" />
-                <div className="text-xs">
-                  <div className="font-medium">{messages.length} unread</div>
-                  <div className="text-muted-foreground text-[11px]">Inbox</div>
-                </div>
-              </div>
-              <Button size="sm" onClick={fetchMessages}>Refresh</Button>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    </div>
-  );
-
-  const ChatView = selectedFriend ? (
-    <div className="flex-1 flex flex-col h-full rounded-2xl overflow-hidden glass-border">
-      {/* Header */}
-      <div className="px-6 py-4 flex items-center justify-between border-b border-white/6">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center">
-            <Users className="w-5 h-5 text-primary" />
-          </div>
-          <div>
-            <div className="font-semibold">{selectedFriend.username}</div>
-            <div className="text-xs text-muted-foreground">Chat</div>
-          </div>
-        </div>
-
-        <div className="flex gap-2">
-          <Button size="sm" variant="ghost" onClick={() => handleRemoveFriend(selectedFriend.id)}>
-            Remove
-          </Button>
-          <Button size="sm" onClick={() => { setSelectedFriend(null); setChatMessages([]); }}>Back</Button>
-        </div>
-      </div>
-
-      {/* Messages */}
-      <div className="flex-1 p-6 overflow-y-auto" ref={chatScrollRef}>
-        <div className="space-y-4">
-          {chatMessages.length === 0 ? (
-            <div className="flex items-center justify-center h-64 text-muted-foreground">No messages yet. Start the convo.</div>
-          ) : (
-            chatMessages.map((msg) => {
-              const isMine = msg.from_user_id === user?.id;
-              return (
-                <div key={msg.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
-                  <div className="relative max-w-[70%]">
-                    <div className={`px-5 py-3 ${isMine ? 'bg-primary text-primary-foreground rounded-br-none' : 'bg-muted/50'} ${isMine ? 'rounded-2xl' : 'rounded-2xl'}`}>
-                      <p className="break-words text-sm">{msg.content}</p>
-                      <div className="text-[11px] mt-1 text-muted-foreground">{new Date(msg.created_at).toLocaleString()}</div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-sm text-white truncate">{f.username}</span>
+                      <MessageSquare className="w-4 h-4 flex-shrink-0 text-white/50" />
                     </div>
+                  </button>
+                ))
+              ))}
 
-                    {/* delete button inside container so it doesn't spill out */}
-                    {isMine && (
-                      <div className="mt-1 flex justify-end">
-                        <Button size="icon" variant="ghost" onClick={() => handleDeleteMessage(msg.id)}>
-                          <Trash2 className="w-4 h-4" />
+            {activeTab === 'pending' &&
+              (friendRequests.length === 0 ? (
+                <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-6 text-center">
+                  <Mail className="w-8 h-8 text-white/40 mx-auto mb-2" />
+                  <h3 className="font-semibold text-white mb-1">No requests</h3>
+                  <p className="text-sm text-white/60">No friend requests at the moment</p>
+                </div>
+              ) : (
+                friendRequests.map((r) => {
+                  const requester = allUsers.find((u) => u.id === r.user_id) || { username: 'Unknown' };
+                  return (
+                    <div key={r.id} className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-3 space-y-2">
+                      <div>
+                        <p className="font-medium text-sm text-white">{requester.username}</p>
+                        <p className="text-xs text-white/60">sent a friend request</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                          onClick={() => handleAcceptRequest(r.id)}
+                        >
+                          <Check className="w-3 h-3 mr-1" />
+                          Accept
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-white/20 text-white hover:bg-white/10"
+                          onClick={() => handleDeclineRequest(r.id)}
+                        >
+                          <X className="w-3 h-3" />
                         </Button>
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  );
+                })
+              ))}
+
+            {activeTab === 'discover' &&
+              (discoverList.length === 0 ? (
+                <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-6 text-center">
+                  <Search className="w-8 h-8 text-white/40 mx-auto mb-2" />
+                  <h3 className="font-semibold text-white mb-1">No users found</h3>
+                  <p className="text-sm text-white/60">{searchQuery ? 'Try a different search' : 'Start discovering people'}</p>
                 </div>
-              );
-            })
+              ) : (
+                discoverList.map((u) => (
+                  <div key={u.id} className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-3 space-y-2">
+                    <div>
+                      <p className="font-medium text-sm text-white">{u.username}</p>
+                      <p className="text-xs text-white/60">{u.id === user?.id ? 'You' : 'User'}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                        onClick={() => {
+                          setSelectedFriend({ id: u.id, username: u.username });
+                          fetchChatMessages(u.id);
+                          setActiveTab('messages');
+                        }}
+                      >
+                        <MessageSquare className="w-3 h-3 mr-1" />
+                        Chat
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-white/20 text-white hover:bg-white/10"
+                        onClick={() => handleSendFriendRequest(u.id)}
+                        disabled={u.id === user?.id}
+                      >
+                        <UserPlus className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              ))}
+          </div>
+        </div>
+
+        {/* Right side - Chat */}
+        <div className="flex-1 flex flex-col gap-4 overflow-hidden">
+          {!selectedFriend ? (
+            <div className="flex-1 flex items-center justify-center">
+              <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-8 text-center max-w-md">
+                <div className="rounded-full bg-white/10 p-4 mx-auto mb-4 w-fit">
+                  <MessageSquare className="w-8 h-8 text-blue-300" />
+                </div>
+                <h3 className="font-semibold text-lg text-white mb-2">No conversation selected</h3>
+                <p className="text-sm text-white/60">Choose a friend to start chatting</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Chat header */}
+              <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Button variant="ghost" size="icon" onClick={() => { setSelectedFriend(null); setChatMessages([]); }}>
+                      <ArrowLeft className="w-4 h-4" />
+                    </Button>
+                    <div>
+                      <h2 className="font-semibold text-white">{selectedFriend.username}</h2>
+                      <p className="text-xs text-white/50">Direct message</p>
+                    </div>
+                  </div>
+                  <Button variant="destructive" size="sm" onClick={() => handleRemoveFriend(selectedFriend.id)}>
+                    Remove
+                  </Button>
+                </div>
+              </div>
+
+              {/* Messages area */}
+              <div className="flex-1 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl overflow-hidden flex flex-col">
+                <div className="flex-1 overflow-y-auto py-4 px-4 space-y-4" ref={chatScrollRef}>
+                  {chatMessages.length === 0 ? (
+                    <div className="h-full flex items-center justify-center text-center">
+                      <div>
+                        <MessageSquare className="w-8 h-8 text-white/40 mx-auto mb-2" />
+                        <p className="text-sm text-white/60">No messages yet. Start the conversation!</p>
+                      </div>
+                    </div>
+                  ) : (
+                    chatMessages.map((msg) => {
+                      const isMine = msg.from_user_id === user?.id;
+                      return (
+                        <div key={msg.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
+                          <div className="flex flex-col max-w-xs gap-1">
+                            <div
+                              className={`px-4 py-2 rounded-xl ${
+                                isMine
+                                  ? 'bg-blue-600 text-white rounded-br-none'
+                                  : 'bg-white/10 text-white rounded-bl-none border border-white/20'
+                              }`}
+                            >
+                              <p className="text-sm break-words">{msg.content}</p>
+                            </div>
+                            <div className={`text-xs text-white/50 ${isMine ? 'text-right' : 'text-left'} px-1`}>
+                              {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                            {isMine && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="w-fit h-fit p-1 text-white/50 hover:text-white"
+                                onClick={() => handleDeleteMessage(msg.id)}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Input area */}
+              <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-4">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Type a message..."
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage();
+                      }
+                    }}
+                    className="flex-1 bg-white/10 border-white/20 text-white placeholder:text-white/40"
+                  />
+                  <Button onClick={handleSendMessage} size="icon" disabled={!newMessage.trim()}>
+                    <Send className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </>
           )}
         </div>
       </div>
 
-      {/* Input */}
-      <div className="p-4 border-t border-white/6 flex gap-3 items-center">
-        <Input
-          placeholder="Type a message..."
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              handleSendMessage();
-            }
-          }}
-          className="flex-1"
-        />
-        <Button onClick={handleSendMessage} size="icon">
-          <Send className="w-4 h-4" />
-        </Button>
-      </div>
-    </div>
-  ) : (
-    <div className="flex-1 flex items-center justify-center glass p-8 rounded-2xl">
-      <div className="text-center text-muted-foreground">
-        <h3 className="text-lg font-semibold mb-2">Select a conversation</h3>
-        <p className="text-sm">Pick a friend or start a new chat from Discover.</p>
-      </div>
-    </div>
-  );
-
-  const TabsView = (
-    <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="h-full flex-1 flex flex-col">
-      <TabsList className="grid grid-cols-4 gap-1 bg-transparent p-1 rounded-lg mb-4">
-        <TabsTrigger value="discover" className="data-[state=active]:bg-primary/80 data-[state=active]:text-white">Discover</TabsTrigger>
-        <TabsTrigger value="pending" className="data-[state=active]:bg-primary/80 data-[state=active]:text-white">Pending</TabsTrigger>
-        <TabsTrigger value="friends" className="data-[state=active]:bg-primary/80 data-[state=active]:text-white">Friends</TabsTrigger>
-        <TabsTrigger value="messages" className="data-[state=active]:bg-primary/80 data-[state=active]:text-white">Messages</TabsTrigger>
-      </TabsList>
-
-      <TabsContent value="discover" className="flex-1 overflow-hidden">
-        <div className="flex flex-col h-full gap-4">
-          <div className="flex items-center gap-2">
-            <Search className="w-4 h-4 text-muted-foreground" />
-            <Input placeholder="Search users..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="flex-1 max-w-md" />
-          </div>
-
-          <ScrollArea className="flex-1 pr-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {discoverList.length === 0 ? (
-                <EmptyCard>No users found</EmptyCard>
-              ) : (
-                discoverList.map((u) => (
-                  <Card key={u.id} className="glass p-0 rounded-lg hover:shadow-md transition-all">
-                    <CardContent className="p-4">
-                      <div className="flex flex-col gap-3">
-                        <div className="flex items-center justify-between">
-                          <div className="font-medium truncate">{u.username}</div>
-                          <div className="text-xs text-muted-foreground">{u.id === user?.id ? 'You' : null}</div>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button size="sm" className="flex-1" onClick={() => { setSelectedFriend({ id: u.id, username: u.username }); fetchChatMessages(u.id); }}>
-                            <MessageSquare className="w-4 h-4 mr-2" />
-                            Chat
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => handleSendFriendRequest(u.id)}>
-                            <UserPlus className="w-4 h-4 mr-2" />
-                            Add
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
+      {/* Confirm dialog */}
+      {confirmDialog && (
+        <AlertDialog open={true} onOpenChange={(val) => !val && setConfirmDialog(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{confirmDialog.title}</AlertDialogTitle>
+              <AlertDialogDescription>{confirmDialog.description}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="flex gap-3 mt-4">
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDialog.onConfirm} className="bg-destructive text-destructive-foreground">
+                Confirm
+              </AlertDialogAction>
             </div>
-          </ScrollArea>
-        </div>
-      </TabsContent>
-
-      <TabsContent value="pending" className="flex-1 overflow-hidden">
-        <ScrollArea className="flex-1 pr-4">
-          <div className="space-y-3">
-            {friendRequests.length === 0 ? (
-              <EmptyCard>No pending requests</EmptyCard>
-            ) : (
-              friendRequests.map((r) => {
-                const requester = allUsers.find((u) => u.id === r.user_id) || { username: 'Unknown' };
-                return (
-                  <Card key={r.id} className="glass rounded-lg">
-                    <CardContent className="p-4 flex items-center justify-between">
-                      <div>
-                        <div className="font-medium">{requester.username}</div>
-                        <div className="text-sm text-muted-foreground">Requested</div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="ghost" onClick={() => handleAcceptRequest(r.id)} className="h-8 w-8 p-0 text-green-600">
-                          <Check className="w-4 h-4" />
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => handleDeclineRequest(r.id)} className="h-8 w-8 p-0 text-red-600">
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })
-            )}
-          </div>
-        </ScrollArea>
-      </TabsContent>
-
-      <TabsContent value="friends" className="flex-1 overflow-hidden">
-        <ScrollArea className="flex-1 pr-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {friends.length === 0 ? (
-              <EmptyCard>No friends yet</EmptyCard>
-            ) : (
-              friends.map((f) => (
-                <Card key={f.id} className="glass rounded-lg cursor-pointer" onClick={() => { setSelectedFriend(f); fetchChatMessages(f.id); }}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center">
-                          <Users className="w-5 h-5 text-primary" />
-                        </div>
-                        <div>
-                          <div className="font-medium">{f.username}</div>
-                          <div className="text-xs text-muted-foreground">Friend</div>
-                        </div>
-                      </div>
-                      <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setSelectedFriend(f); fetchChatMessages(f.id); }}>
-                        <MessageSquare className="w-4 h-4 mr-2" />
-                        Chat
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </div>
-        </ScrollArea>
-      </TabsContent>
-
-      <TabsContent value="messages" className="flex-1 overflow-hidden">
-        <ScrollArea className="flex-1 pr-4">
-          <div className="space-y-3">
-            {messages.length === 0 ? (
-              <EmptyCard>No messages yet</EmptyCard>
-            ) : (
-              messages.map((m) => {
-                const sender = friends.find((f) => f.id === m.from_user_id) || allUsers.find((u) => u.id === m.from_user_id) || { username: 'Unknown' };
-                return (
-                  <Card key={m.id} className="glass rounded-lg cursor-pointer" onClick={() => {
-                    const senderProfile = friends.find((f) => f.id === m.from_user_id) || { id: m.from_user_id, username: sender.username } as Profile;
-                    setSelectedFriend(senderProfile);
-                    fetchChatMessages(senderProfile.id);
-                  }}>
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="font-medium">{sender.username}</div>
-                          <div className="text-sm text-muted-foreground line-clamp-2">{m.content}</div>
-                        </div>
-                        <div className="text-xs text-muted-foreground">{new Date(m.created_at).toLocaleDateString()}</div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })
-            )}
-          </div>
-        </ScrollArea>
-      </TabsContent>
-    </Tabs>
-  );
-
-  // -----------------------------
-  // Layout
-  // -----------------------------
-  return (
-    <>
-      {/* local glass CSS (move to globals.css if you want) */}
-      <style>{`
-        .glass {
-          background: rgba(255,255,255,0.04);
-          border: 1px solid rgba(255,255,255,0.06);
-          backdrop-filter: blur(12px) saturate(140%);
-        }
-        .glass-border {
-          background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-          border: 1px solid rgba(255,255,255,0.06);
-          backdrop-filter: blur(14px) saturate(135%);
-        }
-      `}</style>
-
-      <div className="min-h-screen w-full" style={{ background: 'linear-gradient(180deg,#020617 0%, #08122a 100%)' }}>
-        <div className="p-6 h-[calc(100vh-24px)]">
-          <div className="flex gap-6 h-full">
-            {leftSidebar}
-            <div className="flex-1 flex flex-col">
-              {/* top small header */}
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <h1 className="text-2xl font-semibold text-white">Inbox</h1>
-                  <p className="text-sm text-muted-foreground">Direct messages</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button size="sm" variant="ghost" onClick={() => { setSelectedFriend(null); setActiveTab('discover'); }}>
-                    Discover
-                  </Button>
-                </div>
-              </div>
-
-              <div className="flex-1 flex gap-6">
-                {/* Conversations column */}
-                <div className="w-96 flex-shrink-0">
-                  <div className="glass p-3 rounded-xl h-full flex flex-col">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2"><Search className="w-4 h-4 text-muted-foreground" /><h4 className="font-semibold">Conversations</h4></div>
-                      <div className="text-xs text-muted-foreground/70">{messages.length}</div>
-                    </div>
-
-                    <div className="mb-3">
-                      <Input placeholder="Search messages..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-                    </div>
-
-                    <ScrollArea className="flex-1 pr-2">
-                      <div className="space-y-3">
-                        {messages.length === 0 ? <EmptyCard>No conversations</EmptyCard> : messages.map((m) => {
-                          const sender = friends.find(f => f.id === m.from_user_id) || allUsers.find(u => u.id === m.from_user_id) || { username: 'Unknown', id: m.from_user_id };
-                          return (
-                            <div key={m.id} className="glass p-3 rounded-lg hover:shadow-md cursor-pointer" onClick={() => { const profile = { id: sender.id, username: sender.username } as Profile; setSelectedFriend(profile); fetchChatMessages(profile.id); }}>
-                              <div className="flex items-center justify-between">
-                                <div className="flex-1">
-                                  <div className="font-medium truncate">{sender.username}</div>
-                                  <div className="text-sm text-muted-foreground line-clamp-2">{m.content}</div>
-                                </div>
-                                <div className="text-xs text-muted-foreground">{new Date(m.created_at).toLocaleDateString()}</div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </ScrollArea>
-                  </div>
-                </div>
-
-                {/* Main: Chat or Tabs */}
-                <div className="flex-1 flex flex-col">
-                  {selectedFriend ? ChatView : TabsView}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {confirmDialog && (
-          <ConfirmDialog open={true} onClose={() => setConfirmDialog(null)} title={confirmDialog.title} description={confirmDialog.description} onConfirm={confirmDialog.onConfirm} />
-        )}
-      </div>
-    </>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+    </div>
   );
 }
