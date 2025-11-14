@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, FileText, Trash2, Bold, Italic, Underline, List } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
   const handleDeleteNote = async (id: string) => {
     const { error } = await supabase.from('notes').delete().eq('id', id);
     if (error) {
@@ -217,9 +218,9 @@ const Notes = () => {
               </Button>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground line-clamp-3 mb-2">
-                {note.content}
-              </p>
+              <div className="text-sm text-muted-foreground line-clamp-3 mb-2 prose prose-sm dark:prose-invert prose-headings:text-sm prose-p:text-sm prose-li:text-sm max-w-none">
+                <ReactMarkdown>{note.content}</ReactMarkdown>
+              </div>
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span>By {note.profiles.username}</span>
                 <span>{note.is_public ? 'Public' : 'Private'}</span>

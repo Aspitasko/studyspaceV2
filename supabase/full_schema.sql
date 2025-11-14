@@ -92,9 +92,9 @@ CREATE TABLE IF NOT EXISTS public.tasks (
 
 ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can view own tasks"
+CREATE POLICY "Anyone can view tasks"
   ON public.tasks FOR SELECT
-  USING (auth.uid() = user_id);
+  USING (true);
 
 CREATE POLICY "Users can create own tasks"
   ON public.tasks FOR INSERT
@@ -235,4 +235,4 @@ $$;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW
-  EXECUTE FUNCTION public.handle_new_user(); 
+  EXECUTE FUNCTION public.handle_new_user();

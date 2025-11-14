@@ -10,22 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, CheckCircle2, Circle, Trash2, Bold, Italic, Underline, List } from 'lucide-react';
-  const handleDeleteTask = async (id: string) => {
-    const { error } = await supabase.from('tasks').delete().eq('id', id);
-    if (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to delete task',
-        variant: 'destructive',
-      });
-    } else {
-      toast({
-        title: 'Deleted',
-        description: 'Task deleted successfully',
-      });
-      fetchTasks();
-    }
-  };
+import ReactMarkdown from 'react-markdown';
 
 interface Task {
   id: string;
@@ -64,7 +49,6 @@ const Tasks = () => {
     const { data, error } = await supabase
       .from('tasks')
       .select('*')
-      .eq('user_id', user?.id)
       .order('created_at', { ascending: false });
 
     if (!error && data) {
@@ -108,6 +92,23 @@ const Tasks = () => {
       .eq('id', taskId);
 
     if (!error) {
+      fetchTasks();
+    }
+  };
+
+  const handleDeleteTask = async (id: string) => {
+    const { error } = await supabase.from('tasks').delete().eq('id', id);
+    if (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete task',
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: 'Deleted',
+        description: 'Task deleted successfully',
+      });
       fetchTasks();
     }
   };
@@ -200,7 +201,9 @@ const Tasks = () => {
                   {task.title}
                 </h3>
                 {task.description && (
-                  <p className="text-sm text-muted-foreground mt-1">{task.description}</p>
+                  <div className="text-sm text-muted-foreground mt-1 prose prose-sm dark:prose-invert prose-headings:text-xs prose-p:text-sm prose-li:text-sm max-w-none">
+                    <ReactMarkdown>{task.description}</ReactMarkdown>
+                  </div>
                 )}
                 {task.due_date && (
                   <p className="text-xs text-muted-foreground mt-2">
