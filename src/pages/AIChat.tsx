@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -6,14 +6,22 @@ import { useToast } from '@/hooks/use-toast';
 import { Send } from 'lucide-react';
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const RATE_LIMIT_MS = 3000; // 3 seconds between messages
 
 const AIChat = () => {
   const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [lastSent, setLastSent] = useState<number>(0);
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (cooldownSeconds <= 0) return;
+    const timer = setTimeout(() => setCooldownSeconds(cooldownSeconds - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [cooldownSeconds]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -63,15 +71,18 @@ const AIChat = () => {
     e.preventDefault();
     if (!input.trim()) return;
     const now = Date.now();
-    if (now - lastSent < 3000) {
+    if (now - lastSent < RATE_LIMIT_MS) {
+      const remainingSeconds = Math.ceil((RATE_LIMIT_MS - (now - lastSent)) / 1000);
+      setCooldownSeconds(remainingSeconds);
       toast({
         title: 'Rate limit',
-        description: 'Please wait a few seconds before sending another message.',
+        description: `Please wait ${remainingSeconds} second${remainingSeconds > 1 ? 's' : ''} before sending another message.`,
         variant: 'destructive',
       });
       return;
     }
     setLastSent(now);
+    setCooldownSeconds(0);
     const userMessage = { role: 'user' as const, content: input.trim() };
     setMessages((prev) => [...prev, userMessage]);
     setInput('');
@@ -152,10 +163,12 @@ const AIChat = () => {
             <Button
               type="submit"
               size="sm"
-              disabled={loading || !input.trim()}
+              disabled={loading || !input.trim() || cooldownSeconds > 0}
               className="px-3 md:px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-medium transition-all shadow-sm whitespace-nowrap"
             >
-              {loading ? (
+              {cooldownSeconds > 0 ? (
+                <span className="text-xs md:text-sm">{cooldownSeconds}s</span>
+              ) : loading ? (
                 <span className="text-xs md:text-sm">Sending...</span>
               ) : (
                 <Send className="h-4 w-4 md:h-5 md:w-5" />

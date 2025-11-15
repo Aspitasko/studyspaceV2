@@ -6,6 +6,7 @@ import { X, Send, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const RATE_LIMIT_MS = 3000; // 3 seconds between messages
 
 const GREETINGS = [
   'Hi there! I\'m your AI study buddy. Ready to help with anything?',
@@ -23,6 +24,7 @@ export function AIChatFloatingDraggable() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [lastSent, setLastSent] = useState<number>(0);
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
   const { toast } = useToast();
   const messagesEndRef = useRef(null);
   const [position, setPosition] = useState({ x: window.innerWidth - 400, y: 40 });
@@ -33,6 +35,12 @@ export function AIChatFloatingDraggable() {
     if (open) setTimeout(() => scrollToBottom(), 100);
   }, [messages, open]);
 
+  useEffect(() => {
+    if (cooldownSeconds <= 0) return;
+    const timer = setTimeout(() => setCooldownSeconds(cooldownSeconds - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [cooldownSeconds]);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -41,15 +49,18 @@ export function AIChatFloatingDraggable() {
     e.preventDefault();
     if (!input.trim()) return;
     const now = Date.now();
-    if (now - lastSent < 3000) {
+    if (now - lastSent < RATE_LIMIT_MS) {
+      const remainingSeconds = Math.ceil((RATE_LIMIT_MS - (now - lastSent)) / 1000);
+      setCooldownSeconds(remainingSeconds);
       toast({
         title: 'Rate limit',
-        description: 'Please wait a few seconds before sending another message.',
+        description: `Please wait ${remainingSeconds} second${remainingSeconds > 1 ? 's' : ''} before sending another message.`,
         variant: 'destructive',
       });
       return;
     }
     setLastSent(now);
+    setCooldownSeconds(0);
     const userMessage = { role: 'user', content: input.trim() };
     setMessages((prev) => [...prev, userMessage]);
     setInput('');
@@ -211,10 +222,15 @@ export function AIChatFloatingDraggable() {
               <Button
                 type="submit"
                 size="icon"
-                disabled={loading || !input.trim()}
-                className="flex-shrink-0 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+                disabled={loading || !input.trim() || cooldownSeconds > 0}
+                className="flex-shrink-0 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all"
+                title={cooldownSeconds > 0 ? `Wait ${cooldownSeconds}s` : 'Send message'}
               >
-                <Send className="w-4 h-4" />
+                {cooldownSeconds > 0 ? (
+                  <span className="text-xs font-semibold">{cooldownSeconds}</span>
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
               </Button>
             </form>
           </div>
