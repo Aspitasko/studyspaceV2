@@ -179,6 +179,15 @@ const Dashboard = () => {
               </p>
             </Link>
             <Link
+              to="/study-rooms"
+              className="p-4 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 hover:bg-white/10 transition-smooth"
+            >
+              <h3 className="font-semibold mb-1">Study Rooms</h3>
+              <p className="text-sm text-muted-foreground">
+                Join or create video study sessions
+              </p>
+            </Link>
+            <Link
               to="/inbox"
               className="p-4 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 hover:bg-white/10 transition-smooth"
             >

@@ -4,7 +4,21 @@
 
 ---
 
-## 🚀 Recent Updates (v2.1)
+## 🚀 Recent Updates (v2.2)
+
+### Study Rooms - Group Video/Audio Calling
+✅ **Create Study Rooms** - Start group study sessions with a unique room code  
+✅ **Join by Code** - Easy access to existing rooms using a 6-digit code  
+✅ **Live Video/Audio** - Real-time voice and video using WebRTC  
+✅ **Participant Management** - See all active participants in the room  
+✅ **Mic & Camera Controls** - Toggle audio/video on and off during sessions  
+✅ **Room Chat** - Text chat alongside video for quick notes/coordination  
+✅ **Participant Limit** - Set max participants when creating rooms  
+✅ **Real-time Updates** - Participants list updates as people join/leave  
+
+---
+
+## 🚀 Previous Updates (v2.1)
 
 ### Notes Page - Major Enhancements
 ✅ **Clickable Note Cards** - Click on any note to open detailed view  
@@ -175,5 +189,5 @@ MIT
 ---
 
 **Last Updated:** November 15, 2025  
-**Version:** 2.1.0  
+**Version:** 2.2.0  
 **Status:** Active Development

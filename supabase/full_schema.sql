@@ -272,3 +272,102 @@ CREATE POLICY "Only admins can update settings"
 INSERT INTO public.settings (notes_locked, ai_locked, chat_locked, tasks_locked)
 VALUES (false, false, false, false)
 ON CONFLICT DO NOTHING;
+
+-- STUDY ROOMS TABLE
+CREATE TABLE IF NOT EXISTS public.study_rooms (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  room_code TEXT UNIQUE NOT NULL,
+  created_by UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  room_name TEXT NOT NULL,
+  description TEXT,
+  is_active BOOLEAN DEFAULT true NOT NULL,
+  max_participants INTEGER DEFAULT 10 NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL
+);
+
+ALTER TABLE public.study_rooms ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view all active study rooms"
+  ON public.study_rooms FOR SELECT
+  USING (is_active = true);
+
+CREATE POLICY "Room creators can update their own rooms"
+  ON public.study_rooms FOR UPDATE
+  USING (auth.uid() = created_by);
+
+CREATE POLICY "Users can create rooms"
+  ON public.study_rooms FOR INSERT
+  WITH CHECK (auth.uid() = created_by);
+
+CREATE POLICY "Room creators can delete their own rooms"
+  ON public.study_rooms FOR DELETE
+  USING (auth.uid() = created_by);
+
+-- ROOM PARTICIPANTS TABLE
+CREATE TABLE IF NOT EXISTS public.room_participants (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  room_id UUID REFERENCES public.study_rooms(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  joined_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+  left_at TIMESTAMP WITH TIME ZONE,
+  is_active BOOLEAN DEFAULT true NOT NULL,
+  UNIQUE(room_id, user_id)
+);
+
+ALTER TABLE public.room_participants ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view participants in active rooms"
+  ON public.room_participants FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.study_rooms
+      WHERE id = room_id AND is_active = true
+    )
+  );
+
+CREATE POLICY "Users can join rooms"
+  ON public.room_participants FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own participation"
+  ON public.room_participants FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can leave rooms"
+  ON public.room_participants FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- ROOM CHAT TABLE
+CREATE TABLE IF NOT EXISTS public.room_chat_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  room_id UUID REFERENCES public.study_rooms(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  content TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL
+);
+
+ALTER TABLE public.room_chat_messages ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view chat in their joined rooms"
+  ON public.room_chat_messages FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.room_participants
+      WHERE room_id = room_chat_messages.room_id
+        AND user_id = auth.uid()
+        AND is_active = true
+    )
+  );
+
+CREATE POLICY "Users can send messages in their rooms"
+  ON public.room_chat_messages FOR INSERT
+  WITH CHECK (
+    auth.uid() = user_id AND
+    EXISTS (
+      SELECT 1 FROM public.room_participants
+      WHERE room_id = room_chat_messages.room_id
+        AND user_id = auth.uid()
+        AND is_active = true
+    )
+  );

@@ -21,6 +21,8 @@ import DMChat from "./pages/DMChat";
 import DMList from "./pages/DMList";
 import UserDiscovery from "./pages/UserDiscovery";
 import PublicProfiles from "./pages/PublicProfiles";
+import StudyRooms from "./pages/StudyRooms";
+import StudyRoom from "./pages/StudyRoom";
 
 const queryClient = new QueryClient();
 
@@ -161,6 +163,24 @@ const App = () => {
                   <DashboardLayout>
                     <UserDiscovery />
                   </DashboardLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/study-rooms"
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <StudyRooms />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/study-room/:roomId"
+              element={
+                <ProtectedRoute>
+                  <StudyRoom />
                 </ProtectedRoute>
               }
             />
