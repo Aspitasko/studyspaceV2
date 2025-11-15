@@ -20,6 +20,7 @@ import AdminPanel from "./pages/AdminPanel";
 import DMChat from "./pages/DMChat";
 import DMList from "./pages/DMList";
 import UserDiscovery from "./pages/UserDiscovery";
+import PublicProfiles from "./pages/PublicProfiles";
 
 const queryClient = new QueryClient();
 
@@ -89,6 +90,16 @@ const App = () => {
                 <ProtectedRoute>
                   <DashboardLayout>
                     <Leaderboard />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/community"
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <PublicProfiles />
                   </DashboardLayout>
                 </ProtectedRoute>
               }

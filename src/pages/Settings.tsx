@@ -9,8 +9,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { ChevronLeft, Lock, User, Palette } from 'lucide-react';
+import { ChevronLeft, Lock, User, Palette, Shield } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -22,8 +23,10 @@ const Settings = () => {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [isPublic, setIsPublic] = useState(true);
   const [loadingUsername, setLoadingUsername] = useState(false);
   const [loadingPassword, setLoadingPassword] = useState(false);
+  const [loadingPrivacy, setLoadingPrivacy] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -31,12 +34,13 @@ const Settings = () => {
 
       const { data, error } = await supabase
         .from('profiles')
-        .select('username')
+        .select('username, is_public')
         .eq('id', user.id)
         .single();
 
       if (!error && data) {
         setUsername(data.username);
+        setIsPublic(data.is_public ?? true);
       }
     };
 
@@ -173,6 +177,36 @@ const Settings = () => {
     }
   };
 
+  const handlePrivacyToggle = async (value: boolean) => {
+    if (!user) return;
+    
+    setLoadingPrivacy(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ is_public: value })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      setIsPublic(value);
+      toast({
+        title: 'Success',
+        description: value 
+          ? 'Profile is now public. You appear in the community leaderboard.' 
+          : 'Profile is now private. You are hidden from the community leaderboard.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to update privacy settings',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingPrivacy(false);
+    }
+  };
+
   const THEMES = [
     {
       id: 'default',
@@ -217,18 +251,22 @@ const Settings = () => {
       </div>
 
       <Tabs defaultValue="profile" className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-3">
+        <TabsList className="grid w-full max-w-2xl grid-cols-4">
           <TabsTrigger value="profile" className="flex items-center gap-2">
             <User className="h-4 w-4" />
-            Profile
+            <span className="hidden sm:inline">Profile</span>
           </TabsTrigger>
           <TabsTrigger value="password" className="flex items-center gap-2">
             <Lock className="h-4 w-4" />
-            Password
+            <span className="hidden sm:inline">Password</span>
+          </TabsTrigger>
+          <TabsTrigger value="privacy" className="flex items-center gap-2">
+            <Shield className="h-4 w-4" />
+            <span className="hidden sm:inline">Privacy</span>
           </TabsTrigger>
           <TabsTrigger value="theme" className="flex items-center gap-2">
             <Palette className="h-4 w-4" />
-            Theme
+            <span className="hidden sm:inline">Theme</span>
           </TabsTrigger>
         </TabsList>
 
@@ -325,6 +363,44 @@ const Settings = () => {
               <Button variant="outline" onClick={handleResetPassword}>
                 Send Reset Email
               </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Privacy Tab */}
+        <TabsContent value="privacy" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Profile Visibility</CardTitle>
+              <CardDescription>Control who can see your profile</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-card rounded-lg border">
+                <div className="space-y-2">
+                  <Label className="text-base font-semibold">Make Profile Public</Label>
+                  <p className="text-sm text-muted-foreground">
+                    {isPublic 
+                      ? 'Your profile appears in the community leaderboard' 
+                      : 'Your profile is hidden from other users'}
+                  </p>
+                </div>
+                <Switch
+                  checked={isPublic}
+                  onCheckedChange={handlePrivacyToggle}
+                  disabled={loadingPrivacy}
+                />
+              </div>
+              
+              <div className="space-y-3 p-4 bg-muted/20 rounded-lg">
+                <h4 className="font-semibold text-sm">Public Profile Shows:</h4>
+                <ul className="text-sm text-muted-foreground space-y-1">
+                  <li>✓ Your username</li>
+                  <li>✓ Your rank and points</li>
+                  <li>✓ Your study streak</li>
+                  <li>✗ Your email (never shared)</li>
+                  <li>✗ Your personal notes (only public notes visible)</li>
+                </ul>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
