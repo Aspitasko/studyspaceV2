@@ -39,6 +39,16 @@ export default function StudyRooms() {
   const [maxParticipants, setMaxParticipants] = useState(10);
   const [joinCode, setJoinCode] = useState('');
   const [isJoining, setIsJoining] = useState(false);
+  const [locked, setLocked] = useState(true);
+
+  useEffect(() => {
+    // Fetch locked status from settings table
+    const fetchLocked = async () => {
+      const { data, error } = await supabase.from('settings').select('study_rooms_locked').single();
+      if (!error && data) setLocked(data.study_rooms_locked);
+    };
+    fetchLocked();
+  }, []);
 
   useEffect(() => {
     fetchRooms();
@@ -224,13 +234,17 @@ export default function StudyRooms() {
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Study Rooms</h1>
+          <h1 className="text-3xl font-bold flex items-center gap-2">
+            Study Rooms
+            <span className="px-2 py-1 rounded bg-yellow-400 text-xs font-bold text-black">BETA</span>
+            {locked && <span className="px-2 py-1 rounded bg-red-500 text-xs font-bold text-white">Locked</span>}
+          </h1>
           <p className="text-muted-foreground">Connect with others in real-time video study sessions</p>
         </div>
         <div className="flex gap-2">
           <Dialog>
             <DialogTrigger asChild>
-              <Button className="gap-2">
+              <Button className="gap-2" disabled={locked}>
                 <Plus className="h-4 w-4" />
                 Create Room
               </Button>
@@ -248,6 +262,7 @@ export default function StudyRooms() {
                     value={roomName}
                     onChange={(e) => setRoomName(e.target.value)}
                     placeholder="e.g., Math Study Group"
+                    disabled={locked}
                   />
                 </div>
                 <div>
@@ -258,6 +273,7 @@ export default function StudyRooms() {
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="What will you be studying?"
                     rows={3}
+                    disabled={locked}
                   />
                 </div>
                 <div>
@@ -269,18 +285,20 @@ export default function StudyRooms() {
                     max="50"
                     value={maxParticipants}
                     onChange={(e) => setMaxParticipants(parseInt(e.target.value))}
+                    disabled={locked}
                   />
                 </div>
-                <Button onClick={handleCreateRoom} disabled={isCreating} className="w-full">
+                <Button onClick={handleCreateRoom} disabled={isCreating || locked} className="w-full">
                   {isCreating ? 'Creating...' : 'Create Room'}
                 </Button>
+                {locked && <div className="text-center text-red-500 text-xs mt-2">Study rooms are currently locked for beta testing.</div>}
               </div>
             </DialogContent>
           </Dialog>
 
           <Dialog>
             <DialogTrigger asChild>
-              <Button variant="outline" className="gap-2">
+              <Button variant="outline" className="gap-2" disabled={locked}>
                 <LogOut className="h-4 w-4" />
                 Join with Code
               </Button>
@@ -299,11 +317,13 @@ export default function StudyRooms() {
                     onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                     placeholder="e.g., ABC123"
                     maxLength={6}
+                    disabled={locked}
                   />
                 </div>
-                <Button onClick={handleJoinRoom} disabled={isJoining} className="w-full">
+                <Button onClick={handleJoinRoom} disabled={isJoining || locked} className="w-full">
                   {isJoining ? 'Joining...' : 'Join Room'}
                 </Button>
+                {locked && <div className="text-center text-red-500 text-xs mt-2">Joining rooms is currently locked for beta testing.</div>}
               </div>
             </DialogContent>
           </Dialog>

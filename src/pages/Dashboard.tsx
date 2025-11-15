@@ -4,7 +4,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { useThemeManager } from '@/hooks/use-theme-manager';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Link, useNavigate } from 'react-router-dom';
-import { Flame, Trophy, Target, TrendingUp, LogOut, Settings } from 'lucide-react';
+import { Flame, Trophy, Target, TrendingUp, LogOut, Settings, Clock } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 
@@ -90,7 +90,7 @@ const Dashboard = () => {
             Welcome back, <span className={`font-bold ${
               currentTheme === 'forest' ? 'text-emerald-500' : 
               currentTheme === 'purple' ? 'text-purple-400' : 
-              'text-blue-400'
+              'text-[#4F46E5]'
             }`}>{profile?.username || 'Student'}</span>
           </h1>
           <p className="text-muted-foreground">{greeting}</p>
@@ -151,6 +151,15 @@ const Dashboard = () => {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Link
+              to="/pomodoro"
+              className="p-4 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 hover:bg-white/10 transition-smooth"
+            >
+              <h3 className="font-semibold mb-1">Pomodoro Timer</h3>
+              <p className="text-sm text-muted-foreground">
+                Stay focused with timed study sessions
+              </p>
+            </Link>
             <Link
               to="/notes"
               className="p-4 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 hover:bg-white/10 transition-smooth"

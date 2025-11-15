@@ -25,6 +25,11 @@ interface ChatMessage {
   created_at: string;
 }
 
+interface PeerConnection {
+  peerConnection: RTCPeerConnection;
+  stream: MediaStream | null;
+}
+
 export default function StudyRoom() {
   const { roomId } = useParams<{ roomId: string }>();
   const { user } = useAuth();
@@ -40,51 +45,47 @@ export default function StudyRoom() {
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [loading, setLoading] = useState(true);
   const localVideoRef = useRef<HTMLVideoElement>(null);
-  const remoteVideosRef = useRef<{ [key: string]: HTMLVideoElement | null }>({});
+  const remoteVideosRef = useRef<Map<string, HTMLVideoElement>>(new Map());
   const localStreamRef = useRef<MediaStream | null>(null);
-  const peerConnectionsRef = useRef<{ [key: string]: RTCPeerConnection }>({});
+  const peerConnectionsRef = useRef<Map<string, PeerConnection>>(new Map());
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const signalingChannelRef = useRef<any>(null);
+  const isInitializedRef = useRef(false);
 
   // Optimized ICE servers and WebRTC configuration for lowest latency
   const rtcConfiguration: RTCConfiguration = {
     iceServers: [
-      { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
     ],
     iceCandidatePoolSize: 10,
+    bundlePolicy: 'max-bundle',
+    rtcpMuxPolicy: 'require',
   };
 
   useEffect(() => {
     if (!roomId || !user) return;
-    fetchRoom();
-    fetchParticipants();
-    fetchMessages();
-    initializeLocalStream();
 
-    const subscriptions = [
-      supabase
-        .channel(`room_participants_${roomId}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'room_participants' }, () => {
-          fetchParticipants();
-        })
-        .subscribe(),
-      supabase
-        .channel(`room_chat_${roomId}`)
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'room_chat_messages' }, () => {
-          fetchMessages();
-        })
-        .subscribe(),
-    ];
+    const initializeRoom = async () => {
+      await fetchRoom();
+      await fetchParticipants();
+      await fetchMessages();
+      await initializeLocalStream();
+      await setupSignalingChannel();
+      isInitializedRef.current = true;
+    };
+
+    initializeRoom();
 
     return () => {
-      subscriptions.forEach((sub) => supabase.removeChannel(sub));
-      localStreamRef.current?.getTracks().forEach((track) => track.stop());
-      Object.values(peerConnectionsRef.current).forEach((pc) => pc.close());
+      cleanup();
     };
   }, [roomId, user]);
 
   // Auto-redirect when current user leaves the room
   useEffect(() => {
-    if (loading || !user) return;
+    if (loading || !user || !isInitializedRef.current) return;
     
     const currentUserInRoom = participants.some(p => p.user_id === user.id);
     
@@ -97,12 +98,132 @@ export default function StudyRoom() {
     }
   }, [participants, user, loading, navigate, toast]);
 
+  // Setup WebRTC connections when participants change
+  useEffect(() => {
+    if (!isInitializedRef.current || !localStreamRef.current || !user) return;
+    
+    // Create connections for new participants
+    participants.forEach(participant => {
+      if (participant.user_id !== user.id && !peerConnectionsRef.current.has(participant.user_id)) {
+        createPeerConnection(participant.user_id, participant.username);
+      }
+    });
+
+    // Remove connections for participants who left
+    const participantIds = new Set(participants.map(p => p.user_id));
+    peerConnectionsRef.current.forEach((_, userId) => {
+      if (userId !== user.id && !participantIds.has(userId)) {
+        closePeerConnection(userId);
+      }
+    });
+  }, [participants, user]);
+
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const cleanup = () => {
+    // Stop local stream
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => track.stop());
+      localStreamRef.current = null;
+    }
+
+    // Close all peer connections
+    peerConnectionsRef.current.forEach((peerConn) => {
+      peerConn.peerConnection.close();
+    });
+    peerConnectionsRef.current.clear();
+
+    // Remove signaling channel
+    if (signalingChannelRef.current) {
+      supabase.removeChannel(signalingChannelRef.current);
+      signalingChannelRef.current = null;
+    }
+
+    isInitializedRef.current = false;
+  };
+
+  const setupSignalingChannel = async () => {
+    if (!roomId || !user) return;
+
+    // Subscribe to signaling messages
+    const channel = supabase
+      .channel(`webrtc_signals_${roomId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'webrtc_signals',
+          filter: `to_user_id=eq.${user.id}`,
+        },
+        async (payload: any) => {
+          const signal = payload.new;
+          await handleSignal(signal);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'room_participants',
+          filter: `room_id=eq.${roomId}`,
+        },
+        () => {
+          fetchParticipants();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'room_chat_messages',
+          filter: `room_id=eq.${roomId}`,
+        },
+        () => {
+          fetchMessages();
+        }
+      )
+      .subscribe();
+
+    signalingChannelRef.current = channel;
+  };
+
+  const handleSignal = async (signal: any) => {
+    const { from_user_id, signal_type, signal_data } = signal;
+
+    console.log('Received signal:', signal_type, 'from:', from_user_id);
+
+    if (signal_type === 'offer') {
+      await handleOffer(from_user_id, signal_data);
+    } else if (signal_type === 'answer') {
+      await handleAnswer(from_user_id, signal_data);
+    } else if (signal_type === 'ice-candidate') {
+      await handleIceCandidate(from_user_id, signal_data);
+    }
+  };
+
+  const sendSignal = async (toUserId: string, signalType: string, signalData: any) => {
+    if (!roomId || !user) return;
+
+    try {
+      await supabase.from('webrtc_signals').insert({
+        room_id: roomId,
+        from_user_id: user.id,
+        to_user_id: toUserId,
+        signal_type: signalType,
+        signal_data: signalData,
+      });
+    } catch (err) {
+      console.error('Error sending signal:', err);
+    }
   };
 
   const fetchRoom = async () => {
@@ -177,30 +298,17 @@ export default function StudyRoom() {
 
   const initializeLocalStream = async () => {
     try {
-      // Request permissions first
-      const cameraPermission = await navigator.permissions.query({ name: 'camera' });
-      const micPermission = await navigator.permissions.query({ name: 'microphone' });
-
-      if (cameraPermission.state === 'denied' || micPermission.state === 'denied') {
-        toast({
-          title: 'Permissions Denied',
-          description: 'Please enable camera and microphone permissions in your browser settings',
-          variant: 'destructive',
-        });
-        return;
-      }
-
       // Optimized constraints for lowest latency
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           width: { ideal: 1280 },
           height: { ideal: 720 },
-          frameRate: { ideal: 30 }, // Balance between quality and latency
+          frameRate: { ideal: 30 },
         },
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: false, // Disable for lower latency
+          autoGainControl: true,
         },
       });
 
@@ -208,9 +316,8 @@ export default function StudyRoom() {
 
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
-        // Play without delay
         localVideoRef.current.muted = true;
-        localVideoRef.current.play().catch(() => {});
+        await localVideoRef.current.play().catch(() => {});
       }
 
       toast({
@@ -224,14 +331,12 @@ export default function StudyRoom() {
 
       if (audioTrack) {
         audioTrack.enabled = isAudioOn;
-        // Enable low latency for audio
         if ('contentHint' in audioTrack) {
           (audioTrack as any).contentHint = 'speech';
         }
       }
       if (videoTrack) {
         videoTrack.enabled = isVideoOn;
-        // Enable low latency for video
         if ('contentHint' in videoTrack) {
           (videoTrack as any).contentHint = 'motion';
         }
@@ -316,50 +421,197 @@ export default function StudyRoom() {
   };
 
   // Optimized WebRTC functions for lowest latency peer connections
-  const createPeerConnection = async (participantId: string) => {
+  const createPeerConnection = async (participantUserId: string, participantUsername: string) => {
+    if (!localStreamRef.current || !user) return;
+
+    console.log('Creating peer connection with:', participantUsername, participantUserId);
+
     try {
       const pc = new RTCPeerConnection(rtcConfiguration);
+      const peerConnection: PeerConnection = {
+        peerConnection: pc,
+        stream: null,
+      };
 
-      // Add local stream tracks to peer connection (low latency)
-      if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach((track) => {
-          pc.addTrack(track, localStreamRef.current!);
-        });
-      }
+      // Add local stream tracks to peer connection
+      localStreamRef.current.getTracks().forEach((track) => {
+        pc.addTrack(track, localStreamRef.current!);
+      });
 
-      // Handle ICE candidates immediately
+      // Handle ICE candidates
       pc.onicecandidate = (event) => {
         if (event.candidate) {
-          // In production, send ICE candidates via signaling server
-          console.log('ICE candidate:', event.candidate);
+          console.log('Sending ICE candidate to:', participantUserId);
+          sendSignal(participantUserId, 'ice-candidate', event.candidate.toJSON());
         }
       };
 
       // Handle remote stream
       pc.ontrack = (event) => {
-        console.log('Remote track received:', event.track.kind);
+        console.log('Received remote track:', event.track.kind, 'from:', participantUserId);
+        
         if (event.streams && event.streams[0]) {
-          const remoteStream = event.streams[0];
-          if (remoteVideosRef.current[participantId]) {
-            remoteVideosRef.current[participantId]!.srcObject = remoteStream;
+          peerConnection.stream = event.streams[0];
+          
+          // Update video element if it exists
+          const videoElement = remoteVideosRef.current.get(participantUserId);
+          if (videoElement) {
+            videoElement.srcObject = event.streams[0];
+            videoElement.play().catch(err => console.error('Error playing remote video:', err));
           }
         }
       };
 
       // Connection state monitoring
       pc.onconnectionstatechange = () => {
-        console.log(`Connection state with ${participantId}:`, pc.connectionState);
-        if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
-          pc.close();
-          delete peerConnectionsRef.current[participantId];
+        console.log(`Connection state with ${participantUsername}:`, pc.connectionState);
+        
+        if (pc.connectionState === 'connected') {
+          toast({
+            title: 'Connected',
+            description: `Connected to ${participantUsername}`,
+          });
+        } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+          console.log('Connection failed/disconnected, will retry...');
+          // Attempt to reconnect
+          setTimeout(() => {
+            if (peerConnectionsRef.current.has(participantUserId)) {
+              closePeerConnection(participantUserId);
+              createPeerConnection(participantUserId, participantUsername);
+            }
+          }, 2000);
         }
       };
 
-      peerConnectionsRef.current[participantId] = pc;
+      // ICE connection state monitoring
+      pc.oniceconnectionstatechange = () => {
+        console.log(`ICE connection state with ${participantUsername}:`, pc.iceConnectionState);
+      };
+
+      peerConnectionsRef.current.set(participantUserId, peerConnection);
+
+      // Create and send offer
+      const offer = await pc.createOffer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: true,
+      });
+      await pc.setLocalDescription(offer);
+      
+      console.log('Sending offer to:', participantUserId);
+      await sendSignal(participantUserId, 'offer', offer);
+
       return pc;
     } catch (err) {
       console.error('Error creating peer connection:', err);
+      toast({
+        title: 'Connection Error',
+        description: `Failed to connect to ${participantUsername}`,
+        variant: 'destructive',
+      });
       return null;
+    }
+  };
+
+  const handleOffer = async (fromUserId: string, offer: RTCSessionDescriptionInit) => {
+    if (!localStreamRef.current || !user) return;
+
+    console.log('Handling offer from:', fromUserId);
+
+    try {
+      let peerConnection = peerConnectionsRef.current.get(fromUserId);
+      
+      if (!peerConnection) {
+        // Create new peer connection
+        const pc = new RTCPeerConnection(rtcConfiguration);
+        peerConnection = {
+          peerConnection: pc,
+          stream: null,
+        };
+
+        // Add local stream tracks
+        localStreamRef.current.getTracks().forEach((track) => {
+          pc.addTrack(track, localStreamRef.current!);
+        });
+
+        // Handle ICE candidates
+        pc.onicecandidate = (event) => {
+          if (event.candidate) {
+            console.log('Sending ICE candidate to:', fromUserId);
+            sendSignal(fromUserId, 'ice-candidate', event.candidate.toJSON());
+          }
+        };
+
+        // Handle remote stream
+        pc.ontrack = (event) => {
+          console.log('Received remote track from offer handler:', event.track.kind);
+          
+          if (event.streams && event.streams[0]) {
+            peerConnection!.stream = event.streams[0];
+            
+            const videoElement = remoteVideosRef.current.get(fromUserId);
+            if (videoElement) {
+              videoElement.srcObject = event.streams[0];
+              videoElement.play().catch(err => console.error('Error playing remote video:', err));
+            }
+          }
+        };
+
+        // Connection state monitoring
+        pc.onconnectionstatechange = () => {
+          console.log(`Connection state with ${fromUserId}:`, pc.connectionState);
+        };
+
+        peerConnectionsRef.current.set(fromUserId, peerConnection);
+      }
+
+      await peerConnection.peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+      
+      const answer = await peerConnection.peerConnection.createAnswer();
+      await peerConnection.peerConnection.setLocalDescription(answer);
+      
+      console.log('Sending answer to:', fromUserId);
+      await sendSignal(fromUserId, 'answer', answer);
+    } catch (err) {
+      console.error('Error handling offer:', err);
+    }
+  };
+
+  const handleAnswer = async (fromUserId: string, answer: RTCSessionDescriptionInit) => {
+    console.log('Handling answer from:', fromUserId);
+
+    try {
+      const peerConnection = peerConnectionsRef.current.get(fromUserId);
+      
+      if (peerConnection) {
+        await peerConnection.peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+      }
+    } catch (err) {
+      console.error('Error handling answer:', err);
+    }
+  };
+
+  const handleIceCandidate = async (fromUserId: string, candidate: RTCIceCandidateInit) => {
+    console.log('Handling ICE candidate from:', fromUserId);
+
+    try {
+      const peerConnection = peerConnectionsRef.current.get(fromUserId);
+      
+      if (peerConnection && peerConnection.peerConnection.remoteDescription) {
+        await peerConnection.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+      }
+    } catch (err) {
+      console.error('Error handling ICE candidate:', err);
+    }
+  };
+
+  const closePeerConnection = (userId: string) => {
+    const peerConnection = peerConnectionsRef.current.get(userId);
+    if (peerConnection) {
+      peerConnection.peerConnection.close();
+      peerConnectionsRef.current.delete(userId);
+      
+      // Remove video element reference
+      remoteVideosRef.current.delete(userId);
     }
   };
 
@@ -446,8 +698,51 @@ export default function StudyRoom() {
       <div className="flex-1 flex gap-4 overflow-hidden">
         {/* Video Area */}
         <div className="flex-1 flex flex-col gap-4">
+          {/* Remote Videos Grid */}
+          {participants.filter(p => p.user_id !== user?.id).length > 0 && (
+            <div className={`flex-1 grid gap-4 overflow-auto ${
+              participants.filter(p => p.user_id !== user?.id).length === 1 ? 'grid-cols-1' :
+              participants.filter(p => p.user_id !== user?.id).length === 2 ? 'grid-cols-2' :
+              participants.filter(p => p.user_id !== user?.id).length <= 4 ? 'grid-cols-2 grid-rows-2' :
+              'grid-cols-3'
+            }`}>
+              {participants
+                .filter(p => p.user_id !== user?.id)
+                .map((participant) => (
+                  <div
+                    key={participant.user_id}
+                    className={`relative overflow-hidden shadow-lg rounded-2xl bg-gray-900 ${getGlassmorphismClasses()}`}
+                  >
+                    <video
+                      ref={(el) => {
+                        if (el) {
+                          remoteVideosRef.current.set(participant.user_id, el);
+                          // If stream already exists, set it
+                          const peerConn = peerConnectionsRef.current.get(participant.user_id);
+                          if (peerConn?.stream) {
+                            el.srcObject = peerConn.stream;
+                            el.play().catch(err => console.error('Error playing video:', err));
+                          }
+                        }
+                      }}
+                      autoPlay
+                      playsInline
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-md text-white px-3 py-1 rounded-full text-sm font-semibold border border-white/20">
+                      {participant.username}
+                    </div>
+                    <div className="absolute top-4 left-4 bg-green-500/80 backdrop-blur-md text-white px-3 py-1 rounded-full text-xs font-semibold border border-white/20 flex items-center gap-1">
+                      <div className="h-2 w-2 rounded-full bg-white animate-pulse"></div>
+                      Live
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
+
           {/* Local Video */}
-          <div className={`flex-1 relative overflow-hidden shadow-lg ${getGlassmorphismClasses()}`}>
+          <div className={`${participants.filter(p => p.user_id !== user?.id).length > 0 ? 'h-48' : 'flex-1'} relative overflow-hidden shadow-lg ${getGlassmorphismClasses()}`}>
             <video
               ref={localVideoRef}
               autoPlay
@@ -458,7 +753,7 @@ export default function StudyRoom() {
             
             {/* Video Status Badge */}
             <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md text-white px-3 py-1 rounded-full text-xs font-semibold border border-white/20">
-              {!isVideoOn ? '📹 Camera Off' : '🟢 Live'}
+              You {!isVideoOn && '(Camera Off)'}
             </div>
 
             {/* Control Buttons - Always Visible */}
