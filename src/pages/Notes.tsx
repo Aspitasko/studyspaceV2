@@ -9,8 +9,69 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, FileText, Trash2, Bold, Italic, Underline, List } from 'lucide-react';
+import { Plus, FileText, Trash2, Bold, Italic, Underline, List, ChevronDown } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+
+// Component to render formatted text
+const FormattedText = ({ text }: { text: string }) => {
+  const parts: any[] = [];
+  let lastIndex = 0;
+
+  // Regex patterns for different formatting
+  const patterns = [
+    { regex: /\*\*([^\*]+)\*\*/g, type: 'bold' },
+    { regex: /\*([^\*]+)\*/g, type: 'italic' },
+    { regex: /__([^_]+)__/g, type: 'underline' },
+    { regex: /`([^`]+)`/g, type: 'code' },
+  ];
+
+  // Process all patterns
+  let result = text;
+  result = result.replace(/\*\*([^\*]+)\*\*/g, '<strong>$1</strong>');
+  result = result.replace(/(?<!\*)\*(?!\*)([^\*]+)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
+  result = result.replace(/__([^_]+)__/g, '<u>$1</u>');
+  result = result.replace(/`([^`]+)`/g, '<code>$1</code>');
+  result = result.replace(/^# (.*?)$/gm, '<h1>$1</h1>');
+  result = result.replace(/^## (.*?)$/gm, '<h2>$1</h2>');
+  result = result.replace(/^### (.*?)$/gm, '<h3>$1</h3>');
+  result = result.replace(/^- (.*?)$/gm, '<li>$1</li>');
+
+  return (
+    <div
+      className="space-y-2 break-words whitespace-normal"
+      dangerouslySetInnerHTML={{
+        __html: result
+          .split('\n')
+          .map((line) => {
+            if (line.includes('<h1>')) return `<div class="text-white font-bold text-lg mt-4 mb-2 break-words">${line.replace(/<h1>(.*?)<\/h1>/, '$1')}</div>`;
+            if (line.includes('<h2>')) return `<div class="text-white font-bold text-base mt-4 mb-2 break-words">${line.replace(/<h2>(.*?)<\/h2>/, '$1')}</div>`;
+            if (line.includes('<h3>')) return `<div class="text-white font-bold text-sm mt-3 mb-1 break-words">${line.replace(/<h3>(.*?)<\/h3>/, '$1')}</div>`;
+            if (line.includes('<li>')) return `<div class="text-white font-semibold my-1 ml-4 break-words">• ${line.replace(/<li>(.*?)<\/li>/, '$1')}</div>`;
+            return `<div class="text-white font-semibold my-2 break-words">${line}</div>`;
+          })
+          .join('')
+          .replace(/<strong>(.*?)<\/strong>/g, '<span class="font-bold text-white break-words">$1</span>')
+          .replace(/<em>(.*?)<\/em>/g, '<span class="italic text-white break-words">$1</span>')
+          .replace(/<u>(.*?)<\/u>/g, '<span class="underline text-white break-words">$1</span>')
+          .replace(/<code>(.*?)<\/code>/g, '<span class="bg-slate-700 text-white px-1.5 py-0.5 rounded text-xs break-words">$1</span>'),
+      }}
+    />
+  );
+};
+
+// Custom markdown components to handle formatting
+const markdownComponents = {
+  strong: ({ children }: any) => <strong className="font-bold text-white">{children}</strong>,
+  em: ({ children }: any) => <em className="italic text-white">{children}</em>,
+  code: ({ children }: any) => <code className="bg-slate-700 text-white px-1.5 py-0.5 rounded text-xs">{children}</code>,
+  p: ({ children }: any) => <p className="text-white font-semibold my-2">{children}</p>,
+  li: ({ children }: any) => <li className="text-white font-semibold my-1 ml-4">• {children}</li>,
+  h1: ({ children }: any) => <h1 className="text-white font-bold text-lg mt-4 mb-2">{children}</h1>,
+  h2: ({ children }: any) => <h2 className="text-white font-bold text-base mt-4 mb-2">{children}</h2>,
+  h3: ({ children }: any) => <h3 className="text-white font-bold text-sm mt-3 mb-1">{children}</h3>,
+  blockquote: ({ children }: any) => <blockquote className="border-l-4 border-white pl-4 text-white italic my-2">{children}</blockquote>,
+  hr: () => <hr className="border-slate-600 my-3" />,
+};
   const handleDeleteNote = async (id: string) => {
     const { error } = await supabase.from('notes').delete().eq('id', id);
     if (error) {
@@ -35,6 +96,7 @@ interface Note {
   subject: string | null;
   is_public: boolean;
   created_at: string;
+  user_id: string;
   profiles: {
     username: string;
   };
@@ -44,6 +106,7 @@ const Notes = () => {
   const { user } = useAuth();
   const [notes, setNotes] = useState<Note[]>([]);
   const [open, setOpen] = useState(false);
+  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [subject, setSubject] = useState('');
@@ -197,38 +260,97 @@ const Notes = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {notes.map((note) => (
-          <Card key={note.id} className="shadow-card hover:shadow-card-hover transition-smooth">
-            <CardHeader className="flex flex-row items-start justify-between gap-2">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-accent" />
-                  {note.title}
-                </CardTitle>
-                {note.subject && (
-                  <p className="text-sm text-muted-foreground">{note.subject}</p>
+          <Card 
+            key={note.id} 
+            className="shadow-card hover:shadow-card-hover transition-smooth cursor-pointer group overflow-hidden"
+            onClick={() => setSelectedNote(note)}
+          >
+            <CardHeader className="flex flex-col items-start justify-start gap-2">
+              <div className="flex flex-row items-start justify-between gap-2 w-full">
+                <div className="flex-1 min-w-0">
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-accent flex-shrink-0" />
+                    <span className="break-words">{note.title}</span>
+                  </CardTitle>
+                  {note.subject && (
+                    <p className="text-sm text-muted-foreground break-words">{note.subject}</p>
+                  )}
+                </div>
+                {user?.id === note.user_id && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteNote(note.id);
+                    }}
+                    aria-label="Delete Note"
+                    className="flex-shrink-0"
+                  >
+                    <Trash2 className="h-5 w-5 text-destructive" />
+                  </Button>
                 )}
               </div>
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() => handleDeleteNote(note.id)}
-                aria-label="Delete Note"
-              >
-                <Trash2 className="h-5 w-5 text-destructive" />
-              </Button>
             </CardHeader>
-            <CardContent>
-              <div className="text-sm text-muted-foreground line-clamp-3 mb-2 prose prose-sm dark:prose-invert prose-headings:text-sm prose-p:text-sm prose-li:text-sm max-w-none">
-                <ReactMarkdown>{note.content}</ReactMarkdown>
+            <CardContent className="space-y-3">
+              <div className="text-sm text-white line-clamp-4 max-w-none break-words">
+                <FormattedText text={note.content} />
               </div>
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <div className="flex items-center justify-between text-xs text-white pt-2 border-t">
                 <span>By {note.profiles.username}</span>
                 <span>{note.is_public ? 'Public' : 'Private'}</span>
+              </div>
+              <div className="flex items-center justify-center gap-1 text-xs font-semibold text-white group-hover:text-white transition-colors pt-1">
+                <ChevronDown className="h-3 w-3" />
+                <span>Click to view more context</span>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
+
+      {/* Detail View Dialog */}
+      <Dialog open={selectedNote !== null} onOpenChange={(open) => !open && setSelectedNote(null)}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          {selectedNote && (
+            <>
+              <DialogHeader className="flex flex-row items-start justify-between gap-4 pb-2">
+                <div className="flex-1">
+                  <DialogTitle className="flex items-center gap-2 text-xl">
+                    <FileText className="h-6 w-6 text-accent" />
+                    {selectedNote.title}
+                  </DialogTitle>
+                  {selectedNote.subject && (
+                    <p className="text-sm text-muted-foreground mt-2 break-words">{selectedNote.subject}</p>
+                  )}
+                </div>
+                {user?.id === selectedNote.user_id && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => {
+                      handleDeleteNote(selectedNote.id);
+                      setSelectedNote(null);
+                    }}
+                    aria-label="Delete Note"
+                  >
+                    <Trash2 className="h-5 w-5 text-destructive" />
+                  </Button>
+                )}
+              </DialogHeader>
+              <div className="space-y-6 py-4">
+                <div className="max-w-none break-words">
+                  <FormattedText text={selectedNote.content} />
+                </div>
+                <div className="flex items-center justify-between text-sm text-muted-foreground pt-4 border-t">
+                  <span>By {selectedNote.profiles.username}</span>
+                  <span>{selectedNote.is_public ? 'Public' : 'Private'}</span>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {notes.length === 0 && (
         <Card className="shadow-card">

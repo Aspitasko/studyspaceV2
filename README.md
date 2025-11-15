@@ -4,7 +4,24 @@
 
 ---
 
-## 🚀 Recent Updates (v2.0)
+## 🚀 Recent Updates (v2.1)
+
+### Notes Page - Major Enhancements
+✅ **Clickable Note Cards** - Click on any note to open detailed view  
+✅ **Detail Modal View** - Expanded view with full note content without truncation  
+✅ **Multi-line Text Support** - Text properly wraps to multiple lines  
+✅ **Visual Indicator** - "Click to view more context" with chevron icon  
+✅ **Subtitle Wrapping** - Subtitles wrap to multiple lines instead of truncating  
+✅ **Custom Markdown Formatting** - All formatting reliably displays (bold, italic, underline, code, headings, lists)  
+✅ **Creator-Only Delete** - Only note creators can delete notes  
+✅ **Improved Layout** - Better header layout with proper text wrapping  
+✅ **White Text Styling** - Consistent white text with proper font weights  
+
+### Tasks Page - Permissions
+✅ **Creator-Only Delete** - Only task creators can delete tasks  
+✅ **Permission System** - User-based access control  
+
+### Previous Updates (v2.0)
 
 ### Inbox Page
 ✅ Scroll features for all tabs (Discover Friends, Pending Messages, Friends, Messages)  
@@ -40,8 +57,17 @@
 
 ---
 
-## 🐛 Bug Fixes & Verification
+## 🐛 Bug Fixes & Verification (v2.1)
 
+✅ **Text Overflow Fixed** - Note content no longer overflows card boundaries  
+✅ **Formatting Display Fixed** - All markdown formatting displays properly  
+✅ **Subtitle Cutoff Fixed** - Subtitle text fully visible in cards  
+✅ **Multi-line Support** - Text wraps correctly in all sections  
+✅ **Permission System** - Creator-only delete functionality  
+✅ **Layout Issues Fixed** - Better header layout with proper flex distribution  
+✅ **Type Definitions** - user_id added to Note and Task interfaces  
+
+### Previous Fixes (v2.0)
 ✅ **No TypeScript Errors** - All files compile successfully  
 ✅ **Proper Type Definitions** - All interfaces properly defined  
 ✅ **State Management** - Clean state handling with useCallback and useMemo  
@@ -125,6 +151,6 @@ MIT
 
 ---
 
-**Last Updated:** November 14, 2025  
+**Last Updated:** November 15, 2025  
 **Version:** 2.0.0  
 **Status:** Active Development

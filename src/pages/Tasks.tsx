@@ -19,6 +19,7 @@ interface Task {
   completed: boolean;
   due_date: string | null;
   created_at: string;
+  user_id: string;
 }
 
 const Tasks = () => {
@@ -211,14 +212,16 @@ const Tasks = () => {
                   </p>
                 )}
               </div>
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() => handleDeleteTask(task.id)}
-                aria-label="Delete Task"
-              >
-                <Trash2 className="h-5 w-5 text-destructive" />
-              </Button>
+              {user?.id === task.user_id && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => handleDeleteTask(task.id)}
+                  aria-label="Delete Task"
+                >
+                  <Trash2 className="h-5 w-5 text-destructive" />
+                </Button>
+              )}
               {task.completed ? (
                 <CheckCircle2 className="h-5 w-5 text-accent" />
               ) : (
