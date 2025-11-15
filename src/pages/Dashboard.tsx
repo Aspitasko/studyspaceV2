@@ -8,6 +8,29 @@ import { Flame, Trophy, Target, TrendingUp, LogOut, Settings } from 'lucide-reac
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 
+const GREETINGS = [
+  'Ready to crush your study goals today?',
+  'Let\'s make today productive!',
+  'Time to level up your skills!',
+  'Your progress awaits you!',
+  'Let\'s ace those studies!',
+  'You\'ve got this! Keep pushing!',
+  'Every study session brings you closer to success!',
+  'Today is the perfect day to learn something new!',
+  'Your dedication is your superpower!',
+  'Let\'s turn your goals into achievements!',
+  'Another day to make progress!',
+  'You\'re one step closer to mastery!',
+  'Time to unleash your potential!',
+  'Knowledge is power - let\'s get some!',
+  'Ready for an amazing study session?',
+  'Your future self will thank you!',
+  'Let\'s make learning fun today!',
+  'Success is built one study session at a time!',
+  'You\'re stronger than yesterday. Keep going!',
+  'Let\'s create something incredible!',
+];
+
 interface ProfileData {
   username: string;
   streak: number;
@@ -21,6 +44,11 @@ const Dashboard = () => {
   const { currentTheme } = useThemeManager();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [greeting, setGreeting] = useState('');
+
+  useEffect(() => {
+    setGreeting(GREETINGS[Math.floor(Math.random() * GREETINGS.length)]);
+  }, []);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -61,7 +89,7 @@ const Dashboard = () => {
           <h1 className="text-4xl font-bold mb-2">
             Welcome back, <span className={`font-bold ${currentTheme === 'forest' ? 'text-emerald-600' : ''}`} style={currentTheme !== 'forest' ? { color: '#3333FF' } : {}}>{profile?.username || 'Student'}</span>
           </h1>
-          <p className="text-muted-foreground">Ready to crush your study goals today?</p>
+          <p className="text-muted-foreground">{greeting}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button onClick={() => navigate('/settings')} variant="outline" size="sm">

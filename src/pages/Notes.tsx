@@ -258,15 +258,15 @@ const Notes = () => {
         </Dialog>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-full">
         {notes.map((note) => (
           <Card 
             key={note.id} 
-            className="shadow-card hover:shadow-card-hover transition-smooth cursor-pointer group overflow-hidden"
+            className="shadow-card hover:shadow-card-hover transition-smooth cursor-pointer group overflow-hidden max-w-full"
             onClick={() => setSelectedNote(note)}
           >
-            <CardHeader className="flex flex-col items-start justify-start gap-2">
-              <div className="flex flex-row items-start justify-between gap-2 w-full">
+            <CardHeader className="flex flex-col items-start justify-start gap-2 w-full overflow-hidden">
+              <div className="flex flex-row items-start justify-between gap-2 w-full overflow-hidden">
                 <div className="flex-1 min-w-0">
                   <CardTitle className="flex items-center gap-2">
                     <FileText className="h-5 w-5 text-accent flex-shrink-0" />
