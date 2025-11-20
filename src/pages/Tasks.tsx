@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, CheckCircle2, Circle, Trash2, Bold, Italic, Underline, List, Paperclip, X, Download } from 'lucide-react';
+import { Plus, CheckCircle2, Circle, Trash2, Bold, Italic, Underline, List, Paperclip, X, Download, Edit } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { uploadFile, deleteFile, getFileUrl, formatFileSize, getFileIcon, isImageFile, getImagePreview } from '@/lib/file-upload';
 
@@ -55,6 +55,8 @@ const Tasks = () => {
   const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [open, setOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [dueDate, setDueDate] = useState('');
@@ -341,6 +343,55 @@ const Tasks = () => {
     }
   };
 
+  const openEditDialog = (task: Task) => {
+    setEditingTask(task);
+    setTitle(task.title);
+    setDescription(task.description || '');
+    setDueDate(task.due_date || '');
+    setEditOpen(true);
+    setExpandedTask(null);
+  };
+
+  const handleUpdateTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTask || !title.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Title is required',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const { error } = await supabase
+      .from('tasks')
+      .update({
+        title: title.trim(),
+        description: description.trim() || null,
+        due_date: dueDate || null,
+      })
+      .eq('id', editingTask.id);
+
+    if (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to update task',
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: 'Success',
+        description: 'Task updated successfully',
+      });
+      setEditOpen(false);
+      setTitle('');
+      setDescription('');
+      setDueDate('');
+      setEditingTask(null);
+      fetchTasks();
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -512,6 +563,74 @@ const Tasks = () => {
         </Dialog>
       </div>
 
+      {/* Edit Task Dialog */}
+      <Dialog open={editOpen} onOpenChange={(open) => {
+        if (!open) {
+          setEditingTask(null);
+          setTitle('');
+          setDescription('');
+          setDueDate('');
+        }
+        setEditOpen(open);
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Task</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleUpdateTask} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-title">Title</Label>
+              <Input
+                id="edit-title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-description">Description (Optional)</Label>
+              <div className="flex gap-1 mb-2 flex-wrap">
+                <Button type="button" size="sm" variant="outline" onClick={() => insertFormatting('**', '**')} title="Bold">
+                  <Bold className="w-4 h-4" />
+                </Button>
+                <Button type="button" size="sm" variant="outline" onClick={() => insertFormatting('*', '*')} title="Italic">
+                  <Italic className="w-4 h-4" />
+                </Button>
+                <Button type="button" size="sm" variant="outline" onClick={() => insertFormatting('__', '__')} title="Underline">
+                  <Underline className="w-4 h-4" />
+                </Button>
+                <Button type="button" size="sm" variant="outline" onClick={() => insertFormatting('- ')} title="List">
+                  <List className="w-4 h-4" />
+                </Button>
+              </div>
+              <Textarea
+                id="edit-description"
+                ref={descriptionRef}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Task description (optional)"
+                rows={6}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-dueDate">Due Date (Optional)</Label>
+              <Input
+                id="edit-dueDate"
+                type="datetime-local"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit">Update Task</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {/* Search Bar */}
       <div className="space-y-2">
         <Input
@@ -585,14 +704,25 @@ const Tasks = () => {
                 )}
               </div>
               {user?.id === task.user_id && (
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => handleDeleteTask(task.id)}
-                  aria-label="Delete Task"
-                >
-                  <Trash2 className="h-5 w-5 text-destructive" />
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => openEditDialog(task)}
+                    aria-label="Edit Task"
+                    className="hover:bg-accent/20 hover:text-accent transition-colors"
+                  >
+                    <Edit className="h-5 w-5 text-accent" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => handleDeleteTask(task.id)}
+                    aria-label="Delete Task"
+                  >
+                    <Trash2 className="h-5 w-5 text-destructive" />
+                  </Button>
+                </div>
               )}
               {task.completed ? (
                 <CheckCircle2 className="h-5 w-5 text-accent" />

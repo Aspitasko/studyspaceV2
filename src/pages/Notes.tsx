@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, FileText, Trash2, Bold, Italic, Underline, List, ChevronDown, Paperclip, X, Download, ClipboardCopy } from 'lucide-react';
+import { Plus, FileText, Trash2, Bold, Italic, Underline, List, ChevronDown, Paperclip, X, Download, ClipboardCopy, Edit } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { uploadFile, deleteFile, getFileUrl, formatFileSize, getFileIcon, isImageFile, getImagePreview, MAX_UPLOAD_SIZE } from '@/lib/file-upload';
 
@@ -75,22 +75,6 @@ const markdownComponents = {
   blockquote: ({ children }: any) => <blockquote className="border-l-4 border-white pl-4 text-white italic my-2">{children}</blockquote>,
   hr: () => <hr className="border-slate-600 my-3" />,
 };
-  const handleDeleteNote = async (id: string) => {
-    const { error } = await supabase.from('notes').delete().eq('id', id);
-    if (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to delete note',
-        variant: 'destructive',
-      });
-    } else {
-      toast({
-        title: 'Deleted',
-        description: 'Note deleted successfully',
-      });
-      fetchNotes();
-    }
-  };
 
 interface Note {
   id: string;
@@ -120,10 +104,18 @@ const Notes = () => {
   const [notes, setNotes] = useState<Note[]>([]);
   const [open, setOpen] = useState(false);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
+  const [editingNote, setEditingNote] = useState<Note | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  // Create form state
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [subject, setSubject] = useState('');
   const [isPublic, setIsPublic] = useState(true);
+  // Edit form state
+  const [editTitle, setEditTitle] = useState('');
+  const [editContent, setEditContent] = useState('');
+  const [editSubject, setEditSubject] = useState('');
+  const [editIsPublic, setEditIsPublic] = useState(true);
   const [notesLocked, setNotesLocked] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -151,6 +143,75 @@ const Notes = () => {
 
     checkSettings();
   }, [user]);
+
+  const handleDeleteNote = async (id: string) => {
+    const { error } = await supabase.from('notes').delete().eq('id', id);
+    if (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete note',
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: 'Deleted',
+        description: 'Note deleted successfully',
+      });
+      fetchNotes();
+    }
+  };
+
+  const openEditDialog = (note: Note) => {
+    setEditingNote(note);
+    setEditTitle(note.title);
+    setEditContent(note.content);
+    setEditSubject(note.subject || '');
+    setEditIsPublic(note.is_public);
+    setEditOpen(true);
+    setSelectedNote(null);
+  };
+
+  const handleUpdateNote = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingNote || !editTitle.trim() || !editContent.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Title and content are required',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const { error } = await supabase
+      .from('notes')
+      .update({
+        title: editTitle.trim(),
+        content: editContent.trim(),
+        subject: editSubject.trim() || null,
+        is_public: editIsPublic,
+      })
+      .eq('id', editingNote.id);
+
+    if (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to update note',
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: 'Success',
+        description: 'Note updated successfully',
+      });
+      setEditOpen(false);
+      setEditTitle('');
+      setEditContent('');
+      setEditSubject('');
+      setEditIsPublic(true);
+      setEditingNote(null);
+      fetchNotes();
+    }
+  };
 
   // Formatting functions
   const insertFormatting = (before: string, after: string = '') => {
@@ -601,6 +662,72 @@ const Notes = () => {
         </Dialog>
       </div>
 
+      {/* Edit Note Dialog */}
+      <Dialog open={editOpen} onOpenChange={(open) => {
+        if (!open) {
+          setEditingNote(null);
+          setEditTitle('');
+          setEditContent('');
+          setEditSubject('');
+          setEditIsPublic(true);
+        }
+        setEditOpen(open);
+      }}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Note</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleUpdateNote} className="space-y-4">
+            <div>
+              <Label htmlFor="edit-title">Title</Label>
+              <Input
+                id="edit-title"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                placeholder="Note title"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="edit-subject">Subject</Label>
+              <Input
+                id="edit-subject"
+                value={editSubject}
+                onChange={(e) => setEditSubject(e.target.value)}
+                placeholder="Subject (optional)"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="edit-content">Content</Label>
+              <Textarea
+                id="edit-content"
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                placeholder="Note content"
+                className="min-h-[300px] resize-none"
+              />
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Switch id="edit-public" checked={editIsPublic} onCheckedChange={setEditIsPublic} />
+                <Label htmlFor="edit-public" className="cursor-pointer">
+                  {editIsPublic ? 'Public' : 'Private'}
+                </Label>
+              </div>
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit">Update Note</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {/* Search bar */}
       <div className="space-y-2">
         <Input
@@ -636,18 +763,32 @@ const Notes = () => {
                   )}
                 </div>
                 {user?.id === note.user_id && (
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteNote(note.id);
-                    }}
-                    aria-label="Delete Note"
-                    className="flex-shrink-0"
-                  >
-                    <Trash2 className="h-5 w-5 text-destructive" />
-                  </Button>
+                  <div className="flex gap-2 flex-shrink-0">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        openEditDialog(note);
+                      }}
+                      aria-label="Edit Note"
+                      className="hover:bg-accent/20 hover:text-accent transition-colors"
+                    >
+                      <Edit className="h-5 w-5 text-accent" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteNote(note.id);
+                      }}
+                      aria-label="Delete Note"
+                    >
+                      <Trash2 className="h-5 w-5 text-destructive" />
+                    </Button>
+                  </div>
                 )}
               </div>
             </CardHeader>
