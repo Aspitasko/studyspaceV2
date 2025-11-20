@@ -144,3 +144,22 @@ export const getFileIcon = (fileType: string): string => {
   if (fileType.includes('zip') || fileType.includes('rar')) return '📦';
   return '📎';
 };
+
+/**
+ * Check if file is an image
+ */
+export const isImageFile = (fileType: string): boolean => {
+  return fileType.includes('image');
+};
+
+/**
+ * Get image preview URL
+ */
+export const getImagePreview = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target?.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};

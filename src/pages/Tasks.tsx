@@ -11,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, CheckCircle2, Circle, Trash2, Bold, Italic, Underline, List, Paperclip, X, Download } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { uploadFile, deleteFile, getFileUrl, formatFileSize, getFileIcon } from '@/lib/file-upload';
+import { uploadFile, deleteFile, getFileUrl, formatFileSize, getFileIcon, isImageFile, getImagePreview } from '@/lib/file-upload';
 
 interface Task {
   id: string;
@@ -63,7 +63,10 @@ const Tasks = () => {
   const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const [selectedAttachments, setSelectedAttachments] = useState<File[]>([]);
+  const [filePreviews, setFilePreviews] = useState<{ [key: string]: string }>({});
+  const [dragActive, setDragActive] = useState(false);
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const { toast } = useToast();
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -96,13 +99,55 @@ const Tasks = () => {
   };
 
   // File upload handlers
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     setSelectedAttachments([...selectedAttachments, ...files]);
+    
+    // Generate previews for images
+    for (const file of files) {
+      if (isImageFile(file.type)) {
+        const preview = await getImagePreview(file);
+        setFilePreviews(prev => ({ ...prev, [file.name]: preview }));
+      }
+    }
+  };
+
+  // Drag and drop handlers
+  const handleDrag = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true);
+    } else if (e.type === 'dragleave') {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    const files = Array.from(e.dataTransfer.files || []);
+    setSelectedAttachments([...selectedAttachments, ...files]);
+    
+    // Generate previews for images
+    for (const file of files) {
+      if (isImageFile(file.type)) {
+        const preview = await getImagePreview(file);
+        setFilePreviews(prev => ({ ...prev, [file.name]: preview }));
+      }
+    }
   };
 
   const removeSelectedFile = (index: number) => {
+    const removedFile = selectedAttachments[index];
     setSelectedAttachments(selectedAttachments.filter((_, i) => i !== index));
+    setFilePreviews(prev => {
+      const updated = { ...prev };
+      delete updated[removedFile.name];
+      return updated;
+    });
   };
 
   const uploadAttachments = async (taskId: string) => {
@@ -369,7 +414,19 @@ const Tasks = () => {
               {/* File Upload Section */}
               <div className="space-y-2 w-full">
                 <Label>Attachments (Optional)</Label>
-                <div className="flex gap-2">
+                
+                {/* Drag & Drop Zone */}
+                <div
+                  onDragEnter={handleDrag}
+                  onDragLeave={handleDrag}
+                  onDragOver={handleDrag}
+                  onDrop={handleDrop}
+                  className={`border-2 border-dashed rounded-lg p-4 text-center transition ${
+                    dragActive
+                      ? 'border-accent bg-accent/10'
+                      : 'border-muted-foreground/30 hover:border-accent/50'
+                  }`}
+                >
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -378,34 +435,71 @@ const Tasks = () => {
                     className="hidden"
                     accept="*/*"
                   />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploading}
-                  >
-                    <Paperclip className="h-4 w-4 mr-2" />
-                    Add Files
-                  </Button>
+                  <div className="flex flex-col items-center gap-2">
+                    <Paperclip className="h-5 w-5 text-muted-foreground" />
+                    <div className="text-sm">
+                      <Button
+                        type="button"
+                        variant="link"
+                        size="sm"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="p-0 h-auto"
+                      >
+                        Click to upload
+                      </Button>
+                      <span className="text-muted-foreground"> or drag and drop files here</span>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Selected Files Preview */}
                 {selectedAttachments.length > 0 && (
-                  <div className="space-y-2 p-2 bg-secondary/30 rounded-md">
-                    {selectedAttachments.map((file, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-2 bg-secondary/50 rounded text-sm">
-                        <span className="truncate">{file.name} ({formatFileSize(file.size)})</span>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeSelectedFile(idx)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
+                  <div className="space-y-3 p-3 bg-secondary/30 rounded-md">
+                    <div className="grid grid-cols-2 gap-2">
+                      {selectedAttachments.map((file, idx) => (
+                        <div key={idx} className="relative group">
+                          {filePreviews[file.name] ? (
+                            // Image Thumbnail
+                            <div className="relative">
+                              <img
+                                src={filePreviews[file.name]}
+                                alt={file.name}
+                                className="w-full h-24 object-cover rounded-md"
+                              />
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition rounded-md flex items-center justify-center">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => removeSelectedFile(idx)}
+                                  className="text-white hover:bg-red-500/50"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                              <p className="text-xs mt-1 truncate">{file.name}</p>
+                            </div>
+                          ) : (
+                            // File Item
+                            <div className="flex items-center justify-between p-2 bg-secondary/50 rounded text-sm">
+                              <span className="text-xl">{getFileIcon(file.type)}</span>
+                              <div className="flex-1 mx-2 truncate">
+                                <p className="truncate text-xs">{file.name}</p>
+                                <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeSelectedFile(idx)}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -418,8 +512,23 @@ const Tasks = () => {
         </Dialog>
       </div>
 
+      {/* Search Bar */}
+      <div className="space-y-2">
+        <Input
+          placeholder="Search tasks by title, description..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full"
+        />
+      </div>
+
       <div className="space-y-3">
-        {tasks.map((task) => (
+        {tasks
+          .filter(task => 
+            task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            task.description?.toLowerCase().includes(searchQuery.toLowerCase())
+          )
+          .map((task) => (
           <Card key={task.id} className="shadow-card hover:shadow-card-hover transition-smooth">
             <CardContent className="flex items-start gap-4 pt-6">
               <Checkbox
