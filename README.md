@@ -4,7 +4,34 @@
 
 ---
 
-## 🚀 Recent Updates (v2.2)
+## 🚀 Recent Updates (v2.3)
+
+### File Upload System for Notes & Tasks
+✅ **Upload Attachments** - Attach files to notes and tasks for better organization  
+✅ **Multiple Files** - Upload multiple files at once to a single note/task  
+✅ **File Preview** - See selected files before creating note/task  
+✅ **Download Files** - Click to download attached files directly  
+✅ **File Management** - Delete attachments (creator only)  
+✅ **File Icons** - Visual indicators for different file types (PDF, Word, Images, etc.)  
+✅ **Supabase Storage** - Secure cloud storage with user-level access control  
+✅ **Size Display** - Human-readable file sizes (KB, MB, GB)  
+✅ **RLS Policies** - Row-level security for database and storage  
+
+### UI/UX Improvements
+✅ **Task Card Text** - White text on blue backgrounds for better readability  
+✅ **Dialog Scrolling** - Long forms now properly scroll to show all fields  
+
+---
+
+## 🚀 Previous Updates (v2.2)
+
+### Theme System Overhaul
+✅ **Default Dark Theme** - Blue-based professional theme  
+✅ **Forest Green Theme** - Green accent colors  
+✅ **Mystical Purple Theme** - Purple accent colors  
+✅ **CSS Variable System** - Inline styles with !important for guaranteed propagation  
+✅ **Line Spacing** - Empty lines preserved in Notes and Tasks  
+✅ **Persistent Storage** - Theme preference saved locally  
 
 ### Study Rooms - Group Video/Audio Calling
 ✅ **Create Study Rooms** - Start group study sessions with a unique room code  
@@ -15,27 +42,6 @@
 ✅ **Room Chat** - Text chat alongside video for quick notes/coordination  
 ✅ **Participant Limit** - Set max participants when creating rooms  
 ✅ **Real-time Updates** - Participants list updates as people join/leave  
-
----
-
-## 🚀 Previous Updates (v2.1)
-
-### Notes Page - Major Enhancements
-✅ **Clickable Note Cards** - Click on any note to open detailed view  
-✅ **Detail Modal View** - Expanded view with full note content without truncation  
-✅ **Multi-line Text Support** - Text properly wraps to multiple lines  
-✅ **Visual Indicator** - "Click to view more context" with chevron icon  
-✅ **Subtitle Wrapping** - Subtitles wrap to multiple lines instead of truncating  
-✅ **Custom Markdown Formatting** - All formatting reliably displays (bold, italic, underline, code, headings, lists)  
-✅ **Creator-Only Delete** - Only note creators can delete notes  
-✅ **Improved Layout** - Better header layout with proper text wrapping  
-✅ **White Text Styling** - Consistent white text with proper font weights  
-
-### Tasks Page - Permissions
-✅ **Creator-Only Delete** - Only task creators can delete tasks  
-✅ **Permission System** - User-based access control  
-
-### Previous Updates (v2.0)
 
 ### Inbox Page
 ✅ Scroll features for all tabs (Discover Friends, Pending Messages, Friends, Messages)  
@@ -188,6 +194,6 @@ MIT
 
 ---
 
-**Last Updated:** November 15, 2025  
-**Version:** 2.2.0  
+**Last Updated:** November 20, 2025  
+**Version:** 2.3.0  
 **Status:** Active Development

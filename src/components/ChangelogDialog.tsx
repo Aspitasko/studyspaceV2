@@ -43,77 +43,35 @@ export function ChangelogDialog() {
           <div className="space-y-3">
             <h3 className="font-semibold text-lg flex items-center gap-2">
               <Zap className="h-4 w-4 text-yellow-500" />
-              Latest Updates (v2.2)
+              Latest Updates (v2.3)
             </h3>
             <div className="space-y-2 ml-6">
               <div className="flex items-start gap-2">
                 <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="font-medium">Complete Theme System Overhaul</p>
-                  <p className="text-sm text-muted-foreground">Added Mystical Purple theme, fixed color cascade issues, all UI components now properly respond to theme changes</p>
+                  <p className="font-medium">File Upload System</p>
+                  <p className="text-sm text-muted-foreground">Upload, download, and manage file attachments for Notes and Tasks with Supabase Storage integration</p>
                 </div>
               </div>
               <div className="flex items-start gap-2">
                 <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="font-medium">Line Spacing Preservation</p>
-                  <p className="text-sm text-muted-foreground">Fixed empty line collapsing in Notes and Tasks - proper formatting now maintained</p>
+                  <p className="font-medium">Task Card Text Visibility</p>
+                  <p className="text-sm text-muted-foreground">Improved text contrast on task cards with white text on blue backgrounds</p>
                 </div>
               </div>
               <div className="flex items-start gap-2">
                 <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="font-medium">CSS Variable System</p>
-                  <p className="text-sm text-muted-foreground">Implemented inline styles with !important for guaranteed theme variable propagation</p>
+                  <p className="font-medium">Dialog Scrolling</p>
+                  <p className="text-sm text-muted-foreground">Long forms now properly scroll to show all fields including attachments section</p>
                 </div>
               </div>
               <div className="flex items-start gap-2">
                 <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="font-medium">Settings Page</p>
-                  <p className="text-sm text-muted-foreground">Manage username, password, password reset, and theme preferences</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-2">
-                <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="font-medium">Theme System</p>
-                  <p className="text-sm text-muted-foreground">Default Dark (blue), Forest Green, and Mystical Purple themes with persistent storage</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-2">
-                <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="font-medium">Improved AI Chat</p>
-                  <p className="text-sm text-muted-foreground">Beautiful code block rendering for bash/code snippets and improved send button</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-2">
-                <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="font-medium">Theme-aware Dashboard</p>
-                  <p className="text-sm text-muted-foreground">Username color changes based on selected theme (Blue/Green/Purple)</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-2">
-                <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="font-medium">Vercel Deployment Ready</p>
-                  <p className="text-sm text-muted-foreground">Fixed all asset paths for production deployment</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-2">
-                <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="font-medium">Glassmorphic Design System</p>
-                  <p className="text-sm text-muted-foreground">All cards and components now feature frosted glass effect</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-2">
-                <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="font-medium">Enhanced Messaging</p>
-                  <p className="text-sm text-muted-foreground">Multiline messages, typing indicators, and offline notifications</p>
+                  <p className="font-medium">Complete Theme System</p>
+                  <p className="text-sm text-muted-foreground">Default Dark, Forest Green, and Mystical Purple themes with persistent storage</p>
                 </div>
               </div>
               <div className="flex items-start gap-2">
@@ -121,6 +79,13 @@ export function ChangelogDialog() {
                 <div>
                   <p className="font-medium">Rich Text Formatting</p>
                   <p className="text-sm text-muted-foreground">Bold, italic, lists, headings, and code blocks in Notes & Tasks</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="font-medium">Enhanced Messaging</p>
+                  <p className="text-sm text-muted-foreground">Multiline messages, typing indicators, and offline notifications</p>
                 </div>
               </div>
             </div>
@@ -141,7 +106,7 @@ export function ChangelogDialog() {
                 <span className="font-medium">Supabase Real-time</span>
                 <Badge variant="outline" className="bg-green-500/20 text-green-600 border-green-500/30">
                   <CheckCircle className="h-3 w-3 mr-1" />
-                  Operationalx
+                  Operational
                 </Badge>
               </div>
               <div className="flex items-center justify-between p-2 rounded-lg bg-green-500/10 border border-green-500/20">
@@ -200,7 +165,7 @@ export function ChangelogDialog() {
 
           {/* Version Info */}
           <div className="pt-4 border-t text-sm text-muted-foreground">
-            <p><strong>Version:</strong> 2.2.0</p>
+            <p><strong>Version:</strong> 2.3.0</p>
             <p><strong>Last Updated:</strong> November 20, 2025</p>
             <p><strong>Status:</strong> Active Development</p>
           </div>

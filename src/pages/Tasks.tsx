@@ -9,8 +9,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, CheckCircle2, Circle, Trash2, Bold, Italic, Underline, List } from 'lucide-react';
+import { Plus, CheckCircle2, Circle, Trash2, Bold, Italic, Underline, List, Paperclip, X, Download } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { uploadFile, deleteFile, getFileUrl, formatFileSize, getFileIcon } from '@/lib/file-upload';
 
 interface Task {
   id: string;
@@ -20,6 +21,15 @@ interface Task {
   due_date: string | null;
   created_at: string;
   user_id: string;
+}
+
+interface TaskAttachment {
+  id: string;
+  file_name: string;
+  file_size: number;
+  file_type: string;
+  storage_path: string;
+  created_at: string;
 }
 
 // Component to handle line breaks and spacing in task descriptions
@@ -50,8 +60,13 @@ const Tasks = () => {
   const [dueDate, setDueDate] = useState('');
   const [tasksLocked, setTasksLocked] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [selectedAttachments, setSelectedAttachments] = useState<File[]>([]);
+  const [expandedTask, setExpandedTask] = useState<string | null>(null);
   const { toast } = useToast();
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Check if tasks are locked and if user is admin
   useEffect(() => {
@@ -80,6 +95,109 @@ const Tasks = () => {
     setDescription(newDescription);
   };
 
+  // File upload handlers
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    setSelectedAttachments([...selectedAttachments, ...files]);
+  };
+
+  const removeSelectedFile = (index: number) => {
+    setSelectedAttachments(selectedAttachments.filter((_, i) => i !== index));
+  };
+
+  const uploadAttachments = async (taskId: string) => {
+    if (selectedAttachments.length === 0) return;
+    
+    setUploading(true);
+    try {
+      for (const file of selectedAttachments) {
+        const result = await uploadFile(file, 'task-attachments', user?.id || '');
+        
+        if (result.success && result.path) {
+          // Save attachment metadata to database
+          const { error } = await supabase.from('task_attachments').insert({
+            task_id: taskId,
+            user_id: user?.id,
+            file_name: result.fileName,
+            file_size: result.fileSize,
+            file_type: result.fileType,
+            storage_path: result.path,
+          });
+
+          if (error) {
+            toast({
+              title: 'Error',
+              description: 'Failed to save attachment metadata',
+              variant: 'destructive',
+            });
+          }
+        } else {
+          toast({
+            title: 'Error',
+            description: result.error || 'Failed to upload file',
+            variant: 'destructive',
+          });
+        }
+      }
+      
+      setSelectedAttachments([]);
+      await fetchTaskAttachments(taskId);
+      
+      toast({
+        title: 'Success',
+        description: `${selectedAttachments.length} file(s) uploaded`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to upload attachments',
+        variant: 'destructive',
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const fetchTaskAttachments = async (taskId: string) => {
+    const { data, error } = await supabase
+      .from('task_attachments')
+      .select('*')
+      .eq('task_id', taskId);
+
+    if (!error && data) {
+      setAttachments(data);
+    }
+  };
+
+  const handleDeleteAttachment = async (attachmentId: string, storagePath: string) => {
+    try {
+      // Delete from storage
+      const result = await deleteFile('task-attachments', storagePath);
+      
+      if (result.success) {
+        // Delete from database
+        const { error } = await supabase
+          .from('task_attachments')
+          .delete()
+          .eq('id', attachmentId);
+
+        if (!error) {
+          setAttachments(attachments.filter(a => a.id !== attachmentId));
+          toast({
+            title: 'Success',
+            description: 'Attachment deleted',
+          });
+        }
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete attachment',
+        variant: 'destructive',
+      });
+    }
+  };
+
   useEffect(() => {
     fetchTasks();
   }, [user]);
@@ -92,6 +210,16 @@ const Tasks = () => {
 
     if (!error && data) {
       setTasks(data);
+      // Load attachments for all tasks
+      if (data.length > 0) {
+        const { data: attachmentData } = await supabase
+          .from('task_attachments')
+          .select('*')
+          .in('task_id', data.map(t => t.id));
+        if (attachmentData) {
+          setAttachments(attachmentData);
+        }
+      }
     }
   };
 
@@ -108,12 +236,12 @@ const Tasks = () => {
       return;
     }
 
-    const { error } = await supabase.from('tasks').insert({
+    const { data, error } = await supabase.from('tasks').insert({
       user_id: user?.id,
       title,
       description: description || null,
       due_date: dueDate || null,
-    });
+    }).select().single();
 
     if (error) {
       toast({
@@ -122,6 +250,11 @@ const Tasks = () => {
         variant: 'destructive',
       });
     } else {
+      // Upload attachments if any
+      if (selectedAttachments.length > 0) {
+        await uploadAttachments(data.id);
+      }
+
       toast({
         title: 'Success',
         description: 'Task created successfully',
@@ -130,6 +263,7 @@ const Tasks = () => {
       setTitle('');
       setDescription('');
       setDueDate('');
+      setSelectedAttachments([]);
       fetchTasks();
     }
   };
@@ -179,6 +313,7 @@ const Tasks = () => {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Create New Task</DialogTitle>
+              <p className="text-sm text-muted-foreground">Add a new task to your list. All fields except title are optional.</p>
             </DialogHeader>
             <form onSubmit={handleCreateTask} className="space-y-4">
               <div className="space-y-2">
@@ -230,7 +365,54 @@ const Tasks = () => {
                   onChange={(e) => setDueDate(e.target.value)}
                 />
               </div>
-              <Button type="submit" className="w-full">Create Task</Button>
+
+              {/* File Upload Section */}
+              <div className="space-y-2 w-full">
+                <Label>Attachments (Optional)</Label>
+                <div className="flex gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    accept="*/*"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                  >
+                    <Paperclip className="h-4 w-4 mr-2" />
+                    Add Files
+                  </Button>
+                </div>
+
+                {/* Selected Files Preview */}
+                {selectedAttachments.length > 0 && (
+                  <div className="space-y-2 p-2 bg-secondary/30 rounded-md">
+                    {selectedAttachments.map((file, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-2 bg-secondary/50 rounded text-sm">
+                        <span className="truncate">{file.name} ({formatFileSize(file.size)})</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeSelectedFile(idx)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <Button type="submit" className="w-full" disabled={uploading}>
+                {uploading ? 'Creating & Uploading...' : 'Create Task'}
+              </Button>
             </form>
           </DialogContent>
         </Dialog>
@@ -246,18 +428,51 @@ const Tasks = () => {
                 className="mt-1"
               />
               <div className="flex-1">
-                <h3 className={`font-semibold ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
+                <h3 className={`font-semibold text-white ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
                   {task.title}
                 </h3>
                 {task.description && (
-                  <div className="text-sm text-muted-foreground mt-1">
+                  <div className="text-sm text-white/80 mt-1">
                     <TaskDescription content={task.description} />
                   </div>
                 )}
                 {task.due_date && (
-                  <p className="text-xs text-muted-foreground mt-2">
+                  <p className="text-xs text-white/70 mt-2">
                     Due: {new Date(task.due_date).toLocaleString()}
                   </p>
+                )}
+
+                {/* Attachments Display */}
+                {attachments.filter(a => a.task_id === task.id).length > 0 && (
+                  <div className="mt-3 pt-3 border-t space-y-1">
+                    <p className="text-xs font-medium text-white/80">Attachments:</p>
+                    <div className="space-y-1">
+                      {attachments.filter(a => a.task_id === task.id).map((attachment) => (
+                        <div key={attachment.id} className="flex items-center justify-between text-xs p-1 bg-secondary/30 rounded">
+                          <a
+                            href={getFileUrl('task-attachments', attachment.storage_path)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-accent hover:underline truncate"
+                          >
+                            <span>{getFileIcon(attachment.file_type)}</span>
+                            <span className="truncate">{attachment.file_name}</span>
+                            <Download className="h-3 w-3" />
+                          </a>
+                          {user?.id === task.user_id && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-5 w-5 p-0"
+                              onClick={() => handleDeleteAttachment(attachment.id, attachment.storage_path)}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
               {user?.id === task.user_id && (

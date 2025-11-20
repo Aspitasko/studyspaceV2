@@ -9,8 +9,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, FileText, Trash2, Bold, Italic, Underline, List, ChevronDown } from 'lucide-react';
+import { Plus, FileText, Trash2, Bold, Italic, Underline, List, ChevronDown, Paperclip, X, Download } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { uploadFile, deleteFile, getFileUrl, formatFileSize, getFileIcon } from '@/lib/file-upload';
 
 // Component to render formatted text
 const FormattedText = ({ text }: { text: string }) => {
@@ -104,6 +105,15 @@ interface Note {
   };
 }
 
+interface Attachment {
+  id: string;
+  file_name: string;
+  file_size: number;
+  file_type: string;
+  storage_path: string;
+  created_at: string;
+}
+
 const Notes = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -116,7 +126,11 @@ const Notes = () => {
   const [isPublic, setIsPublic] = useState(true);
   const [notesLocked, setNotesLocked] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [selectedAttachments, setSelectedAttachments] = useState<File[]>([]);
   const contentRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Check if notes are locked and if user is admin
   useEffect(() => {
@@ -145,9 +159,118 @@ const Notes = () => {
     setContent(newContent);
   };
 
+  // File upload handlers
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    setSelectedAttachments([...selectedAttachments, ...files]);
+  };
+
+  const removeSelectedFile = (index: number) => {
+    setSelectedAttachments(selectedAttachments.filter((_, i) => i !== index));
+  };
+
+  const uploadAttachments = async (noteId: string) => {
+    if (selectedAttachments.length === 0) return;
+    
+    setUploading(true);
+    try {
+      for (const file of selectedAttachments) {
+        const result = await uploadFile(file, 'note-attachments', user?.id || '');
+        
+        if (result.success && result.path) {
+          // Save attachment metadata to database
+          const { error } = await supabase.from('note_attachments').insert({
+            note_id: noteId,
+            user_id: user?.id,
+            file_name: result.fileName,
+            file_size: result.fileSize,
+            file_type: result.fileType,
+            storage_path: result.path,
+          });
+
+          if (error) {
+            toast({
+              title: 'Error',
+              description: 'Failed to save attachment metadata',
+              variant: 'destructive',
+            });
+          }
+        } else {
+          toast({
+            title: 'Error',
+            description: result.error || 'Failed to upload file',
+            variant: 'destructive',
+          });
+        }
+      }
+      
+      setSelectedAttachments([]);
+      await fetchNoteAttachments(noteId);
+      
+      toast({
+        title: 'Success',
+        description: `${selectedAttachments.length} file(s) uploaded`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to upload attachments',
+        variant: 'destructive',
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const fetchNoteAttachments = async (noteId: string) => {
+    const { data, error } = await supabase
+      .from('note_attachments')
+      .select('*')
+      .eq('note_id', noteId);
+
+    if (!error && data) {
+      setAttachments(data);
+    }
+  };
+
+  const handleDeleteAttachment = async (attachmentId: string, storagePath: string) => {
+    try {
+      // Delete from storage
+      const result = await deleteFile('note-attachments', storagePath);
+      
+      if (result.success) {
+        // Delete from database
+        const { error } = await supabase
+          .from('note_attachments')
+          .delete()
+          .eq('id', attachmentId);
+
+        if (!error) {
+          setAttachments(attachments.filter(a => a.id !== attachmentId));
+          toast({
+            title: 'Success',
+            description: 'Attachment deleted',
+          });
+        }
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete attachment',
+        variant: 'destructive',
+      });
+    }
+  };
+
   useEffect(() => {
     fetchNotes();
   }, [user]);
+
+  useEffect(() => {
+    if (selectedNote) {
+      fetchNoteAttachments(selectedNote.id);
+    }
+  }, [selectedNote]);
 
   const fetchNotes = async () => {
     const { data, error } = await supabase
@@ -176,13 +299,13 @@ const Notes = () => {
       return;
     }
 
-    const { error } = await supabase.from('notes').insert({
+    const { data, error } = await supabase.from('notes').insert({
       user_id: user?.id,
       title,
       content,
       subject: subject || null,
       is_public: isPublic,
-    });
+    }).select().single();
 
     if (error) {
       toast({
@@ -191,6 +314,11 @@ const Notes = () => {
         variant: 'destructive',
       });
     } else {
+      // Upload attachments if any
+      if (selectedAttachments.length > 0) {
+        await uploadAttachments(data.id);
+      }
+
       toast({
         title: 'Success',
         description: 'Note created successfully',
@@ -200,6 +328,7 @@ const Notes = () => {
       setContent('');
       setSubject('');
       setIsPublic(true);
+      setSelectedAttachments([]);
       fetchNotes();
     }
   };
@@ -283,7 +412,54 @@ const Notes = () => {
                 />
                 <Label htmlFor="public">Make this note public</Label>
               </div>
-              <Button type="submit" className="w-full">Create Note</Button>
+
+              {/* File Upload Section */}
+              <div className="space-y-2 w-full">
+                <Label htmlFor="attachments">Attachments (Optional)</Label>
+                <div className="flex gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    accept="*/*"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                  >
+                    <Paperclip className="h-4 w-4 mr-2" />
+                    Add Files
+                  </Button>
+                </div>
+
+                {/* Selected Files Preview */}
+                {selectedAttachments.length > 0 && (
+                  <div className="space-y-2 p-2 bg-secondary/30 rounded-md">
+                    {selectedAttachments.map((file, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-2 bg-secondary/50 rounded text-sm">
+                        <span className="truncate">{file.name} ({formatFileSize(file.size)})</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeSelectedFile(idx)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <Button type="submit" className="w-full" disabled={uploading}>
+                {uploading ? 'Creating & Uploading...' : 'Create Note'}
+              </Button>
             </form>
           </DialogContent>
         </Dialog>
@@ -373,6 +549,42 @@ const Notes = () => {
                 <div className="max-w-none break-words">
                   <FormattedText text={selectedNote.content} />
                 </div>
+
+                {/* Attachments Section */}
+                {attachments.length > 0 && (
+                  <div className="space-y-2 p-4 bg-secondary/20 rounded-lg border border-border">
+                    <h4 className="font-semibold flex items-center gap-2">
+                      <Paperclip className="h-4 w-4" />
+                      Attachments ({attachments.length})
+                    </h4>
+                    <div className="space-y-2">
+                      {attachments.map((attachment) => (
+                        <div key={attachment.id} className="flex items-center justify-between p-2 bg-secondary/30 rounded text-sm">
+                          <a
+                            href={getFileUrl('note-attachments', attachment.storage_path)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 hover:text-accent transition-colors flex-1"
+                          >
+                            <span className="text-lg">{getFileIcon(attachment.file_type)}</span>
+                            <span className="truncate">{attachment.file_name}</span>
+                            <span className="text-xs text-muted-foreground ml-auto">({formatFileSize(attachment.file_size)})</span>
+                          </a>
+                          {user?.id === selectedNote.user_id && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteAttachment(attachment.id, attachment.storage_path)}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between text-sm text-muted-foreground pt-4 border-t">
                   <span>By {selectedNote.profiles.username}</span>
                   <span>{selectedNote.is_public ? 'Public' : 'Private'}</span>
