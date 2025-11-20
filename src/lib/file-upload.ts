@@ -1,5 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 
+export const MAX_UPLOAD_SIZE = 10 * 1024 * 1024; // 10MB
+
 interface UploadResult {
   success: boolean;
   path?: string;
@@ -23,8 +25,7 @@ export const uploadFile = async (
 ): Promise<UploadResult> => {
   try {
     // Validate file size (10MB max)
-    const maxSize = 10 * 1024 * 1024; // 10MB
-    if (file.size > maxSize) {
+    if (file.size > MAX_UPLOAD_SIZE) {
       return {
         success: false,
         fileName: file.name,

@@ -9,9 +9,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, FileText, Trash2, Bold, Italic, Underline, List, ChevronDown, Paperclip, X, Download } from 'lucide-react';
+import { Plus, FileText, Trash2, Bold, Italic, Underline, List, ChevronDown, Paperclip, X, Download, ClipboardCopy } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { uploadFile, deleteFile, getFileUrl, formatFileSize, getFileIcon, isImageFile, getImagePreview } from '@/lib/file-upload';
+import { uploadFile, deleteFile, getFileUrl, formatFileSize, getFileIcon, isImageFile, getImagePreview, MAX_UPLOAD_SIZE } from '@/lib/file-upload';
 
 // Component to render formatted text
 const FormattedText = ({ text }: { text: string }) => {
@@ -214,6 +214,22 @@ const Notes = () => {
     });
   };
 
+  const handleCopyLink = async (url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      toast({
+        title: 'Copied',
+        description: 'File link copied to clipboard',
+      });
+    } catch (error) {
+      toast({
+        title: 'Copy failed',
+        description: 'Unable to copy link',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const uploadAttachments = async (noteId: string) => {
     if (selectedAttachments.length === 0) return;
     
@@ -308,6 +324,24 @@ const Notes = () => {
   };
 
   useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey)) return;
+      const target = event.target as HTMLElement;
+      const isEditable = target?.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName);
+      if (isEditable) return;
+      if (event.key.toLowerCase() === 'n') {
+        event.preventDefault();
+        if (!notesLocked || isAdmin) {
+          setOpen(true);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleShortcut);
+    return () => window.removeEventListener('keydown', handleShortcut);
+  }, [notesLocked, isAdmin]);
+
+  useEffect(() => {
     fetchNotes();
   }, [user]);
 
@@ -374,6 +408,7 @@ const Notes = () => {
       setSubject('');
       setIsPublic(true);
       setSelectedAttachments([]);
+      setFilePreviews({});
       fetchNotes();
     }
   };
@@ -503,49 +538,56 @@ const Notes = () => {
                 {selectedAttachments.length > 0 && (
                   <div className="space-y-3 p-3 bg-secondary/30 rounded-md">
                     <div className="grid grid-cols-2 gap-2">
-                      {selectedAttachments.map((file, idx) => (
-                        <div key={idx} className="relative group">
-                          {filePreviews[file.name] ? (
-                            // Image Thumbnail
-                            <div className="relative">
-                              <img
-                                src={filePreviews[file.name]}
-                                alt={file.name}
-                                className="w-full h-24 object-cover rounded-md"
-                              />
-                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition rounded-md flex items-center justify-center">
+                      {selectedAttachments.map((file, idx) => {
+                        const progressPercent = Math.min(100, Math.round((file.size / MAX_UPLOAD_SIZE) * 100));
+                        return (
+                          <div key={idx} className="relative group">
+                            {filePreviews[file.name] ? (
+                              <div className="relative">
+                                <img
+                                  src={filePreviews[file.name]}
+                                  alt={file.name}
+                                  className="w-full h-24 object-cover rounded-md"
+                                />
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition rounded-md flex items-center justify-center">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => removeSelectedFile(idx)}
+                                    className="text-white hover:bg-red-500/50"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                                <p className="text-xs mt-1 truncate">{file.name}</p>
+                                <div className="mt-1 h-1 w-full rounded-full bg-muted-foreground/20 overflow-hidden">
+                                  <div
+                                    className="h-full bg-accent"
+                                    style={{ width: `${progressPercent}%` }}
+                                  />
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-between p-2 bg-secondary/50 rounded text-sm">
+                                <span className="text-xl">{getFileIcon(file.type)}</span>
+                                <div className="flex-1 mx-2 truncate">
+                                  <p className="truncate text-xs">{file.name}</p>
+                                  <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
+                                </div>
                                 <Button
                                   type="button"
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => removeSelectedFile(idx)}
-                                  className="text-white hover:bg-red-500/50"
                                 >
-                                  <X className="h-4 w-4" />
+                                  <X className="h-3 w-3" />
                                 </Button>
                               </div>
-                              <p className="text-xs mt-1 truncate">{file.name}</p>
-                            </div>
-                          ) : (
-                            // File Item
-                            <div className="flex items-center justify-between p-2 bg-secondary/50 rounded text-sm">
-                              <span className="text-xl">{getFileIcon(file.type)}</span>
-                              <div className="flex-1 mx-2 truncate">
-                                <p className="truncate text-xs">{file.name}</p>
-                                <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
-                              </div>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => removeSelectedFile(idx)}
-                              >
-                                <X className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -559,8 +601,24 @@ const Notes = () => {
         </Dialog>
       </div>
 
+      {/* Search bar */}
+      <div className="space-y-2">
+        <Input
+          placeholder="Search notes by title, subject, or content..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full"
+        />
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-full">
-        {notes.map((note) => (
+        {notes
+          .filter((note) =>
+            note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            note.subject?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            note.content.toLowerCase().includes(searchQuery.toLowerCase())
+          )
+          .map((note) => (
           <Card 
             key={note.id} 
             className="shadow-card hover:shadow-card-hover transition-smooth cursor-pointer group overflow-hidden max-w-full"
