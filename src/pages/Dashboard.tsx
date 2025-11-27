@@ -88,8 +88,17 @@ const Dashboard = () => {
         <div>
           <h1 className="text-4xl font-bold mb-2">
             Welcome back, <span className={`font-bold ${
-              currentTheme === 'forest' ? 'text-emerald-500' : 
+              currentTheme === 'forest' ? 'text-green-500' : 
+              currentTheme === 'orange' ? 'text-orange-500' : 
               currentTheme === 'purple' ? 'text-purple-400' : 
+              currentTheme === 'midnight' ? 'text-white' : 
+              currentTheme === 'cherry' ? 'text-pink-400' : 
+              currentTheme === 'solarized' ? 'text-cyan-400' : 
+              currentTheme === 'coffee' ? 'text-amber-400' : 
+              currentTheme === 'highcontrast' ? 'text-white' : 
+              currentTheme === 'autumn' ? 'text-orange-400' : 
+              currentTheme === 'rosegold' ? 'text-rose-400' : 
+              currentTheme === 'cyberpunk' ? 'text-fuchsia-400' : 
               'text-[#4F46E5]'
             }`}>{profile?.username || 'Student'}</span>
           </h1>

@@ -1,4 +1,4 @@
-import { Moon, Sun, Trees, Sparkles } from "lucide-react";
+import { Moon, Sun, Trees, Sparkles, Flame } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
@@ -30,6 +30,7 @@ export function ThemeToggle() {
     { id: "light", name: "Light", icon: Sun },
     { id: "dark", name: "Dark", icon: Moon },
     { id: "dark forest", name: "Forest", icon: Trees },
+    { id: "dark orange", name: "Orange", icon: Flame },
     { id: "dark purple", name: "Purple", icon: Sparkles },
   ];
 

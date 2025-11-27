@@ -219,20 +219,92 @@ const Settings = () => {
     {
       id: 'forest',
       name: 'Forest Green',
-      description: 'A lush green theme',
-      bgImage: 'url(/background2.png)',
-      colors: 'bg-emerald-900',
-      beta: true,
-      betaStatus: 'Not Fixed',
+      description: 'A lush green theme with green and dark green UI',
+      bgImage: 'url(/green.jpg)',
+      colors: 'bg-green-900',
+      beta: false,
+    },
+    {
+      id: 'orange',
+      name: 'Sunset Orange',
+      description: 'A warm theme with orange, yellow, red and black',
+      bgImage: 'url(/orange.jpg)',
+      colors: 'bg-orange-900',
+      beta: false,
     },
     {
       id: 'purple',
       name: 'Mystical Purple',
-      description: 'An elegant dark purple theme',
-      bgImage: 'url(/background3.png)',
+      description: 'An elegant theme with purple and dark purple',
+      bgImage: 'url(/purple.jpg)',
       colors: 'bg-purple-900',
-      beta: true,
-      betaStatus: 'Not Fixed',
+      beta: false,
+    },
+    {
+      id: 'midnight',
+      name: 'Midnight',
+      description: 'A monochrome theme with black, white and grey',
+      bgImage: 'url(/midnight.jpg)',
+      colors: 'bg-gray-900',
+      beta: false,
+      betaStatus: 'Performance',
+    },
+    {
+      id: 'cherry',
+      name: 'Cherry Blossom',
+      description: 'Soft pink and white, Japanese aesthetic',
+      bgImage: 'url(/cherry.jpg)',
+      colors: 'bg-pink-200',
+      beta: false,
+    },
+    {
+      id: 'solarized',
+      name: 'Solarized',
+      description: 'Easy on the eyes, balanced color scheme',
+      bgImage: 'url(/solarized.jpg)',
+      colors: 'bg-cyan-900',
+      beta: false,
+    },
+    {
+      id: 'coffee',
+      name: 'Coffee',
+      description: 'Warm browns and creams, cozy espresso vibes',
+      bgImage: 'url(/coffee.jpg)',
+      colors: 'bg-amber-900',
+      beta: false,
+    },
+    {
+      id: 'highcontrast',
+      name: 'High Contrast',
+      description: 'Accessibility-focused, pure black and white',
+      bgImage: 'url(/highcontrast.jpg)',
+      colors: 'bg-black',
+      beta: false,
+      betaStatus: 'Accessibility',
+    },
+    {
+      id: 'autumn',
+      name: 'Autumn',
+      description: 'Warm reds, oranges, and browns like fall leaves',
+      bgImage: 'url(/autumn.jpg)',
+      colors: 'bg-orange-800',
+      beta: false,
+    },
+    {
+      id: 'rosegold',
+      name: 'Rose Gold',
+      description: 'Elegant pink and gold tones',
+      bgImage: 'url(/rosegold.jpg)',
+      colors: 'bg-rose-300',
+      beta: false,
+    },
+    {
+      id: 'cyberpunk',
+      name: 'Cyberpunk',
+      description: 'Neon pink, cyan, and dark purple - futuristic vibes',
+      bgImage: 'url(/cyberpunk.jpg)',
+      colors: 'bg-fuchsia-900',
+      beta: false,
     },
   ];
 
@@ -441,6 +513,13 @@ const Settings = () => {
                           Beta
                         </Badge>
                         <Badge variant="outline" className="text-xs bg-orange-500/20 text-orange-600 border-orange-500/30">
+                          {t.betaStatus}
+                        </Badge>
+                      </div>
+                    )}
+                    {!t.beta && t.betaStatus && (
+                      <div className="absolute top-2 right-2 flex gap-1">
+                        <Badge variant="outline" className="text-xs bg-green-500/20 text-green-600 border-green-500/30">
                           {t.betaStatus}
                         </Badge>
                       </div>

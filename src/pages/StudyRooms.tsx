@@ -19,7 +19,7 @@ export default function StudyRooms() {
           <p className="text-muted-foreground mb-6">Join video calls with MeshMeet - our integrated video conferencing solution</p>
           <Button
             onClick={() => window.open('https://meetmesh-delta.vercel.app/', '_blank')}
-            className="gap-2 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white py-6 px-8 text-lg"
+            className="gap-2 bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-primary-foreground py-6 px-8 text-lg"
           >
             <Video className="h-5 w-5" />
             Open MeshMeet

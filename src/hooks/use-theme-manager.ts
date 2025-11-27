@@ -1,95 +1,61 @@
 import { useEffect, useState } from 'react';
 
-const getThemeVariables = (themeId: string): Record<string, string> => {
-  const themes: Record<string, Record<string, string>> = {
-    default: {
-      '--background': '240 100% 8%',
-      '--foreground': '240 100% 98%',
-      '--primary': '240 100% 60%',
-      '--primary-foreground': '240 100% 98%',
-      '--secondary': '240 100% 30%',
-      '--secondary-foreground': '240 100% 98%',
-      '--muted': '240 30% 20%',
-      '--muted-foreground': '240 100% 80%',
-      '--accent': '240 100% 60%',
-      '--accent-foreground': '240 100% 98%',
-      '--destructive': '0 65% 45%',
-      '--destructive-foreground': '240 100% 98%',
-      '--border': '240 30% 20%',
-      '--input': '240 30% 15%',
-      '--ring': '240 100% 60%',
-      '--card': '240 100% 10%',
-      '--card-foreground': '240 100% 98%',
-    },
-    forest: {
-      '--background': '139 34% 18%',
-      '--foreground': '139 30% 95%',
-      '--primary': '139 34% 40%',
-      '--primary-foreground': '139 34% 95%',
-      '--secondary': '139 40% 50%',
-      '--secondary-foreground': '139 34% 20%',
-      '--muted': '139 30% 30%',
-      '--muted-foreground': '139 30% 75%',
-      '--accent': '139 40% 55%',
-      '--accent-foreground': '139 34% 18%',
-      '--destructive': '0 65% 45%',
-      '--destructive-foreground': '139 30% 95%',
-      '--border': '139 34% 25%',
-      '--input': '139 34% 22%',
-      '--ring': '139 34% 40%',
-      '--card': '139 34% 20%',
-      '--card-foreground': '139 30% 95%',
-    },
-    purple: {
-      '--background': '270 60% 12%',
-      '--foreground': '270 30% 95%',
-      '--primary': '270 60% 50%',
-      '--primary-foreground': '270 30% 95%',
-      '--secondary': '270 70% 60%',
-      '--secondary-foreground': '270 60% 12%',
-      '--muted': '270 40% 25%',
-      '--muted-foreground': '270 30% 75%',
-      '--accent': '280 80% 65%',
-      '--accent-foreground': '270 60% 12%',
-      '--destructive': '0 65% 45%',
-      '--destructive-foreground': '270 30% 95%',
-      '--border': '270 60% 20%',
-      '--input': '270 60% 16%',
-      '--ring': '270 60% 50%',
-      '--card': '270 60% 14%',
-      '--card-foreground': '270 30% 95%',
-    },
-  };
-  return themes[themeId] || themes.default;
-};
-
 const applyTheme = (themeId: string) => {
   const htmlElement = document.documentElement;
+  const bodyElement = document.body;
   
   console.log('[THEME] Applying theme:', themeId);
   
-  // Remove all theme classes
-  htmlElement.classList.remove('dark', 'forest', 'purple', 'default');
+  // Remove all theme classes from html
+  htmlElement.classList.remove('forest', 'orange', 'purple', 'midnight', 'cherry', 'solarized', 'coffee', 'highcontrast', 'autumn', 'rosegold', 'cyberpunk');
+  bodyElement.classList.remove('forest', 'orange', 'purple', 'midnight', 'cherry', 'solarized', 'coffee', 'highcontrast', 'autumn', 'rosegold', 'cyberpunk');
   
-  // Always add 'dark' base class
-  htmlElement.classList.add('dark');
-  
-  // Apply appropriate theme-specific class
-  if (themeId === 'forest') {
-    htmlElement.classList.add('forest');
-  } else if (themeId === 'purple') {
-    htmlElement.classList.add('purple');
+  // Ensure dark class is always present
+  if (!htmlElement.classList.contains('dark')) {
+    htmlElement.classList.add('dark');
+  }
+  if (!bodyElement.classList.contains('dark')) {
+    bodyElement.classList.add('dark');
   }
   
-  console.log('[THEME] Applied classes:', htmlElement.className);
+  // Apply theme-specific class to both html and body
+  if (themeId === 'forest') {
+    htmlElement.classList.add('forest');
+    bodyElement.classList.add('forest');
+  } else if (themeId === 'orange') {
+    htmlElement.classList.add('orange');
+    bodyElement.classList.add('orange');
+  } else if (themeId === 'purple') {
+    htmlElement.classList.add('purple');
+    bodyElement.classList.add('purple');
+  } else if (themeId === 'midnight') {
+    htmlElement.classList.add('midnight');
+    bodyElement.classList.add('midnight');
+  } else if (themeId === 'cherry') {
+    htmlElement.classList.add('cherry');
+    bodyElement.classList.add('cherry');
+  } else if (themeId === 'solarized') {
+    htmlElement.classList.add('solarized');
+    bodyElement.classList.add('solarized');
+  } else if (themeId === 'coffee') {
+    htmlElement.classList.add('coffee');
+    bodyElement.classList.add('coffee');
+  } else if (themeId === 'highcontrast') {
+    htmlElement.classList.add('highcontrast');
+    bodyElement.classList.add('highcontrast');
+  } else if (themeId === 'autumn') {
+    htmlElement.classList.add('autumn');
+    bodyElement.classList.add('autumn');
+  } else if (themeId === 'rosegold') {
+    htmlElement.classList.add('rosegold');
+    bodyElement.classList.add('rosegold');
+  } else if (themeId === 'cyberpunk') {
+    htmlElement.classList.add('cyberpunk');
+    bodyElement.classList.add('cyberpunk');
+  }
   
-  // Also apply variables as inline styles to ensure they take effect
-  const variables = getThemeVariables(themeId);
-  Object.entries(variables).forEach(([key, value]) => {
-    htmlElement.style.setProperty(key, value, 'important');
-  });
-  
-  console.log('[THEME] Set inline style variables for:', themeId);
+  console.log('[THEME] HTML classes:', htmlElement.className);
+  console.log('[THEME] Body classes:', bodyElement.className);
   
   // Force browser to recalculate styles
   void htmlElement.offsetHeight;

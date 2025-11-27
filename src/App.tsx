@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./components/AuthProvider";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { DashboardLayout } from "./components/DashboardLayout";
+import { useThemeManager } from "./hooks/use-theme-manager";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Settings from "./pages/Settings";
@@ -27,9 +28,16 @@ import PomodoroTimer from "./pages/PomodoroTimer";
 
 const queryClient = new QueryClient();
 
+// Theme initializer component to ensure theme is applied at app root
+const ThemeInitializer = ({ children }: { children: React.ReactNode }) => {
+  useThemeManager(); // This initializes and applies the theme
+  return <>{children}</>;
+};
+
 const App = () => {
   return (
   <QueryClientProvider client={queryClient}>
+    <ThemeInitializer>
     <TooltipProvider>
       <Toaster />
       <Sonner />
@@ -200,6 +208,7 @@ const App = () => {
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
+    </ThemeInitializer>
   </QueryClientProvider>
   );
 };

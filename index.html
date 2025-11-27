@@ -11,12 +11,61 @@
     <meta property="og:description" content="Share notes, create tasks, chat with classmates, and compete on the leaderboard" />
     <link rel="icon" type="image/png" href="src/logo.png" />
     
+    <script>
+      // Apply theme before page renders to prevent flash
+      (function() {
+        const theme = localStorage.getItem('app-theme') || 'default';
+        const html = document.documentElement;
+        html.classList.add('dark');
+        if (theme === 'forest') html.classList.add('forest');
+        else if (theme === 'orange') html.classList.add('orange');
+        else if (theme === 'purple') html.classList.add('purple');
+        else if (theme === 'midnight') html.classList.add('midnight');
+        else if (theme === 'cherry') html.classList.add('cherry');
+        else if (theme === 'solarized') html.classList.add('solarized');
+        else if (theme === 'coffee') html.classList.add('coffee');
+        else if (theme === 'highcontrast') html.classList.add('highcontrast');
+        else if (theme === 'autumn') html.classList.add('autumn');
+        else if (theme === 'rosegold') html.classList.add('rosegold');
+        else if (theme === 'cyberpunk') html.classList.add('cyberpunk');
+      })();
+    </script>
     <style>
       html {
-        background: linear-gradient(rgba(0,0,0,0.2), rgba(0,0,0,0.2)), url('/background.png');
-        background-size: cover;
-        background-repeat: no-repeat;
-        background-attachment: fixed;
+        background-color: #0a0a23;
+      }
+      html.forest {
+        background-color: #1a3d1f;
+      }
+      html.orange {
+        background-color: #2a1a0a;
+      }
+      html.purple {
+        background-color: #1a0d26;
+      }
+      html.midnight {
+        background-color: #0a0a0a;
+      }
+      html.cherry {
+        background-color: #3d1a2a;
+      }
+      html.solarized {
+        background-color: #002b36;
+      }
+      html.coffee {
+        background-color: #1a120a;
+      }
+      html.highcontrast {
+        background-color: #000000;
+      }
+      html.autumn {
+        background-color: #2a1a0a;
+      }
+      html.rosegold {
+        background-color: #2a1a1a;
+      }
+      html.cyberpunk {
+        background-color: #0d0015;
       }
     </style>
   </head>

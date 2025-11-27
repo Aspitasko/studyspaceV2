@@ -43,9 +43,16 @@ export function ChangelogDialog() {
           <div className="space-y-3">
             <h3 className="font-semibold text-lg flex items-center gap-2">
               <Zap className="h-4 w-4 text-yellow-500" />
-              Latest Updates (v2.3)
+              Latest Updates (v2.4)
             </h3>
             <div className="space-y-2 ml-6">
+              <div className="flex items-start gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="font-medium">12 Theme Options</p>
+                  <p className="text-sm text-muted-foreground">New themes: Default Dark, Forest Green, Sunset Orange, Mystical Purple, Midnight, Cherry Blossom, Solarized, Coffee, High Contrast, Autumn, Rose Gold, and Cyberpunk</p>
+                </div>
+              </div>
               <div className="flex items-start gap-2">
                 <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
                 <div>
@@ -58,20 +65,6 @@ export function ChangelogDialog() {
                 <div>
                   <p className="font-medium">Task Card Text Visibility</p>
                   <p className="text-sm text-muted-foreground">Improved text contrast on task cards with white text on blue backgrounds</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-2">
-                <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="font-medium">Dialog Scrolling</p>
-                  <p className="text-sm text-muted-foreground">Long forms now properly scroll to show all fields including attachments section</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-2">
-                <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="font-medium">Complete Theme System</p>
-                  <p className="text-sm text-muted-foreground">Default Dark, Forest Green, and Mystical Purple themes with persistent storage</p>
                 </div>
               </div>
               <div className="flex items-start gap-2">
@@ -116,9 +109,9 @@ export function ChangelogDialog() {
                   Operational
                 </Badge>
               </div>
-              <div className="flex items-center justify-between p-2 rounded-lg bg-blue-500/10 border border-blue-500/20">
+              <div className="flex items-center justify-between p-2 rounded-lg bg-primary/10 border border-primary/20">
                 <span className="font-medium">Frontend</span>
-                <Badge variant="outline" className="bg-blue-500/20 text-blue-600 border-blue-500/30">
+                <Badge variant="outline" className="bg-primary/20 text-primary border-primary/30">
                   <CheckCircle className="h-3 w-3 mr-1" />
                   Deployed
                 </Badge>

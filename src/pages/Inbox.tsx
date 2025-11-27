@@ -371,7 +371,7 @@ export default function Inbox() {
             <p className="text-xs md:text-sm text-white/40 truncate">Direct messaging & friends</p>
           </div>
           <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
-            <Badge variant="secondary" className="bg-blue-500/20 text-blue-200 border-blue-400/30 text-xs">
+            <Badge variant="secondary" className="bg-primary/20 text-primary-foreground border-primary/30 text-xs">
               {friends.length}
             </Badge>
             {friendRequests.length > 0 && (
@@ -401,19 +401,19 @@ export default function Inbox() {
 
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
               <TabsList className="grid grid-cols-4 w-full bg-white/5 border border-white/10 h-9">
-                <TabsTrigger value="messages" title="Messages" className="data-[state=active]:bg-blue-500/30 text-xs md:text-sm">
+                <TabsTrigger value="messages" title="Messages" className="data-[state=active]:bg-primary/30 text-xs md:text-sm">
                   <MessageSquare className="w-3 h-3 md:w-4 md:h-4" />
                 </TabsTrigger>
-                <TabsTrigger value="friends" title="Friends" className="data-[state=active]:bg-blue-500/30 text-xs md:text-sm">
+                <TabsTrigger value="friends" title="Friends" className="data-[state=active]:bg-primary/30 text-xs md:text-sm">
                   <Users className="w-3 h-3 md:w-4 md:h-4" />
                 </TabsTrigger>
-                <TabsTrigger value="pending" title="Pending" className="data-[state=active]:bg-blue-500/30 relative text-xs md:text-sm">
+                <TabsTrigger value="pending" title="Pending" className="data-[state=active]:bg-primary/30 relative text-xs md:text-sm">
                   <Mail className="w-3 h-3 md:w-4 md:h-4" />
                   {friendRequests.length > 0 && (
                     <span className="absolute top-1 right-1 w-2 h-2 bg-red-400 rounded-full" />
                   )}
                 </TabsTrigger>
-                <TabsTrigger value="discover" title="Discover" className="data-[state=active]:bg-blue-500/30 text-xs md:text-sm">
+                <TabsTrigger value="discover" title="Discover" className="data-[state=active]:bg-primary/30 text-xs md:text-sm">
                   <UserPlus className="w-3 h-3 md:w-4 md:h-4" />
                 </TabsTrigger>
               </TabsList>
@@ -452,7 +452,7 @@ export default function Inbox() {
                             setMessages((prevMessages) => prevMessages.filter((msg) => msg.id !== m.id));
                           }}
                           className={`w-full rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-3 text-left transition-all ${
-                            isSelected ? 'border-blue-400/50 bg-blue-500/10' : 'hover:bg-white/10'
+                            isSelected ? 'border-primary/50 bg-primary/10' : 'hover:bg-white/10'
                           }`}
                         >
                           <div className="flex items-start justify-between gap-2 mb-1">
@@ -482,7 +482,7 @@ export default function Inbox() {
                         fetchChatMessages(f.id);
                       }}
                       className={`w-full rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-3 text-left transition-all ${
-                        selectedFriend?.id === f.id ? 'border-blue-400/50 bg-blue-500/10' : 'hover:bg-white/10'
+                        selectedFriend?.id === f.id ? 'border-primary/50 bg-primary/10' : 'hover:bg-white/10'
                       }`}
                     >
                       <div className="flex items-center justify-between">
@@ -549,7 +549,7 @@ export default function Inbox() {
                       <div className="flex gap-2">
                         <Button
                           size="sm"
-                          className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                          className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
                           onClick={() => {
                             setSelectedFriend({ id: u.id, username: u.username });
                             fetchChatMessages(u.id);
@@ -582,7 +582,7 @@ export default function Inbox() {
             <div className="flex-1 flex items-center justify-center">
               <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-6 md:p-8 text-center max-w-md">
                 <div className="rounded-full bg-white/10 p-4 mx-auto mb-4 w-fit">
-                  <MessageSquare className="w-6 h-6 md:w-8 md:h-8 text-blue-300" />
+                  <MessageSquare className="w-6 h-6 md:w-8 md:h-8 text-primary" />
                 </div>
                 <h3 className="font-semibold text-base md:text-lg text-white mb-2">No conversation selected</h3>
                 <p className="text-xs md:text-sm text-white/60">Choose a friend to start chatting</p>
@@ -627,7 +627,7 @@ export default function Inbox() {
                             <div
                               className={`px-4 py-2 rounded-xl ${
                                 isMine
-                                  ? 'bg-blue-600 text-white rounded-br-none'
+                                  ? 'bg-primary text-primary-foreground rounded-br-none'
                                   : 'bg-white/10 text-white rounded-bl-none border border-white/20'
                               }`}
                             >

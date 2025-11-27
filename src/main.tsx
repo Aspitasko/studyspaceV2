@@ -7,8 +7,8 @@ createRoot(document.getElementById("root")!).render(
   <ThemeProvider 
     attribute="class" 
     defaultTheme="dark" 
-    enableSystem={false} 
-    forcedTheme="dark"
+    enableSystem={false}
+    disableTransitionOnChange={false}
   >
     <App />
   </ThemeProvider>

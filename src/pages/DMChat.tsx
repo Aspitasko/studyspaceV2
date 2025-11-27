@@ -266,9 +266,9 @@ export default function DMChat() {
                       </AlertDialogContent>
                     </AlertDialog>
                   )}
-                  <div className={`max-w-[70%] rounded-lg p-3 ${msg.from_user_id === user?.id ? 'bg-blue-600 text-white' : 'bg-muted'}`}>
+                  <div className={`max-w-[70%] rounded-lg p-3 ${msg.from_user_id === user?.id ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                     <p className="text-sm break-words whitespace-pre-wrap">{msg.content}</p>
-                    <p className={`text-xs opacity-70 mt-1 ${msg.from_user_id === user?.id ? 'text-blue-100' : ''}`}>
+                    <p className={`text-xs opacity-70 mt-1`}>
                       {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>
