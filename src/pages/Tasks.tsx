@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import useAutoSave from '@/hooks/use-auto-save';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { Button } from '@/components/ui/button';
@@ -9,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, CheckCircle2, Circle, Trash2, Bold, Italic, Underline, List, Paperclip, X, Download, Edit, Filter, ArrowUpDown, Star, Download as DownloadIcon, CheckSquare } from 'lucide-react';
+import { Plus, CheckCircle2, Circle, Trash2, Bold, Italic, Underline, List, Paperclip, X, Download, Edit, Filter, ArrowUpDown, Download as DownloadIcon, CheckSquare } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { uploadFile, deleteFile, getFileUrl, formatFileSize, getFileIcon, isImageFile, getImagePreview } from '@/lib/file-upload';
 import {
@@ -83,10 +84,16 @@ const Tasks = () => {
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'completed'>('all');
   const [sortBy, setSortBy] = useState<'created' | 'due' | 'title'>('created');
   const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
-  const [pinnedTasks, setPinnedTasks] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Autosave drafts for Create Task and Edit Task
+  const createDraftKey = `draft:task:create:${user?.id || 'anon'}`;
+  const { hasDraft: hasCreateDraft, lastSavedAt: createTaskSavedAt, restore: restoreCreateTaskDraft, clear: clearCreateTaskDraft } = useAutoSave(createDraftKey, { title, description, dueDate }, { wait: 1000, shouldSave: (v) => Boolean(v && ((v.title && v.title.trim()) || (v.description && v.description.trim()))) });
+
+  const editDraftKey = editingTask ? `draft:task:edit:${editingTask.id}` : `draft:task:edit:noop`;
+  const { hasDraft: hasEditDraft, lastSavedAt: editTaskSavedAt, restore: restoreEditTaskDraft, clear: clearEditTaskDraft } = useAutoSave(editDraftKey, { title, description, dueDate }, { wait: 1000, shouldSave: (v) => Boolean(v && ((v.title && v.title.trim()) || (v.description && v.description.trim()))) });
 
   // Memoized filtered and sorted tasks for better performance
   const filteredAndSortedTasks = useMemo(() => {
@@ -101,13 +108,7 @@ const Tasks = () => {
     });
 
     filtered.sort((a, b) => {
-      // Pinned tasks always come first
-      const aPinned = pinnedTasks.has(a.id);
-      const bPinned = pinnedTasks.has(b.id);
-      if (aPinned && !bPinned) return -1;
-      if (!aPinned && bPinned) return 1;
-      
-      // Then apply regular sorting
+      // Apply regular sorting
       if (sortBy === 'title') {
         return a.title.localeCompare(b.title);
       } else if (sortBy === 'due') {
@@ -120,7 +121,7 @@ const Tasks = () => {
     });
 
     return filtered;
-  }, [tasks, searchQuery, filterStatus, sortBy, pinnedTasks]);
+  }, [tasks, searchQuery, filterStatus, sortBy]);
 
   // Calculate statistics
   const stats = useMemo(() => {
@@ -149,8 +150,10 @@ const Tasks = () => {
       if (profile) setIsAdmin(profile.is_admin);
     };
 
-    checkSettings();
-  }, [user]);
+    if (user?.id) {
+      checkSettings();
+    }
+  }, [user?.id]);
 
   // Formatting functions
   const insertFormatting = (before: string, after: string = '') => {
@@ -308,16 +311,10 @@ const Tasks = () => {
   };
 
   useEffect(() => {
-    fetchTasks();
-  }, [user]);
-
-  // Load pinned tasks from localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem('pinnedTasks');
-    if (saved) {
-      setPinnedTasks(new Set(JSON.parse(saved)));
+    if (user?.id) {
+      fetchTasks();
     }
-  }, []);
+  }, [user?.id]);
 
   const fetchTasks = async () => {
     setLoading(true);
@@ -383,6 +380,7 @@ const Tasks = () => {
       setDescription('');
       setDueDate('');
       setSelectedAttachments([]);
+      clearCreateTaskDraft();
       fetchTasks();
     }
   };
@@ -460,8 +458,18 @@ const Tasks = () => {
       setDescription('');
       setDueDate('');
       setEditingTask(null);
+      clearEditTaskDraft();
       fetchTasks();
     }
+  };
+
+  const formatSavedAt = (ts: number | null) => {
+    if (!ts) return '';
+    const diff = Date.now() - ts;
+    if (diff < 60_000) return `${Math.round(diff / 1000)}s ago`;
+    if (diff < 3_600_000) return `${Math.round(diff / 60_000)}m ago`;
+    if (diff < 86_400_000) return `${Math.round(diff / 3_600_000)}h ago`;
+    return `${Math.round(diff / 86_400_000)}d ago`;
   };
 
   // Bulk actions
@@ -534,20 +542,6 @@ const Tasks = () => {
     }
   };
 
-  // Pin/Unpin tasks
-  const togglePin = (taskId: string) => {
-    const newPinned = new Set(pinnedTasks);
-    if (newPinned.has(taskId)) {
-      newPinned.delete(taskId);
-      toast({ title: 'Task unpinned' });
-    } else {
-      newPinned.add(taskId);
-      toast({ title: 'Task pinned to top' });
-    }
-    setPinnedTasks(newPinned);
-    localStorage.setItem('pinnedTasks', JSON.stringify(Array.from(newPinned)));
-  };
-
   // Export functionality
   const exportToMarkdown = () => {
     let markdown = '# My Tasks\n\n';
@@ -617,24 +611,28 @@ const Tasks = () => {
               <Badge variant="secondary" className="px-3 py-1">
                 {selectedTasks.size} selected
               </Badge>
-              <Button 
-                size="sm" 
-                variant="outline" 
-                onClick={bulkToggleComplete}
-                className="gap-2"
-              >
-                <CheckSquare className="h-4 w-4" />
-                Toggle Complete
-              </Button>
-              <Button 
-                size="sm" 
-                variant="destructive" 
-                onClick={bulkDeleteTasks}
-                className="gap-2"
-              >
-                <Trash2 className="h-4 w-4" />
-                Delete
-              </Button>
+              {Array.from(selectedTasks).every(id => tasks.find(t => t.id === id)?.user_id === user?.id) && (
+                <>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={bulkToggleComplete}
+                    className="gap-2"
+                  >
+                    <CheckSquare className="h-4 w-4" />
+                    Toggle Complete
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="destructive" 
+                    onClick={bulkDeleteTasks}
+                    className="gap-2"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Delete
+                  </Button>
+                </>
+              )}
             </>
           )}
           <Select onValueChange={(value) => value === 'markdown' ? exportToMarkdown() : exportToJSON()}>
@@ -661,6 +659,22 @@ const Tasks = () => {
       {/* Create Task Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
+          {hasCreateDraft && (
+            <div className="mb-3 p-2 bg-yellow-200 rounded flex items-center justify-between">
+              <div className="text-sm">Autosaved draft • {formatSavedAt(createTaskSavedAt)}</div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="ghost" onClick={() => {
+                  const draft = restoreCreateTaskDraft();
+                  if (draft) {
+                    setTitle(draft.title || '');
+                    setDescription(draft.description || '');
+                    setDueDate(draft.dueDate || '');
+                  }
+                }}>Restore</Button>
+                <Button size="sm" variant="outline" onClick={() => clearCreateTaskDraft()}>Discard</Button>
+              </div>
+            </div>
+          )}
             <DialogHeader>
               <DialogTitle>Create New Task</DialogTitle>
               <p className="text-sm text-muted-foreground">Add a new task to your list. All fields except title are optional.</p>
@@ -827,6 +841,22 @@ const Tasks = () => {
         setEditOpen(open);
       }}>
         <DialogContent>
+          {hasEditDraft && (
+            <div className="mb-3 p-2 bg-yellow-200 rounded flex items-center justify-between">
+              <div className="text-sm">Autosaved edit draft • {formatSavedAt(editTaskSavedAt)}</div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="ghost" onClick={() => {
+                  const draft = restoreEditTaskDraft();
+                  if (draft) {
+                    setTitle(draft.title || '');
+                    setDescription(draft.description || '');
+                    setDueDate(draft.dueDate || '');
+                  }
+                }}>Restore</Button>
+                <Button size="sm" variant="outline" onClick={() => clearEditTaskDraft()}>Discard</Button>
+              </div>
+            </div>
+          )}
           <DialogHeader>
             <DialogTitle>Edit Task</DialogTitle>
           </DialogHeader>
@@ -944,31 +974,23 @@ const Tasks = () => {
               key={task.id} 
               className={`shadow-card hover:shadow-card-hover transition-smooth ${
                 selectedTasks.has(task.id) ? 'ring-2 ring-accent' : ''
-              } ${pinnedTasks.has(task.id) ? 'border-l-4 border-l-yellow-500' : ''}`}
+              }`}
             >
               <CardContent className="flex items-start gap-4 pt-6">
-                <div className="flex flex-col gap-2">
-                  <Checkbox
-                    checked={selectedTasks.has(task.id)}
-                    onCheckedChange={() => toggleTaskSelection(task.id)}
-                    aria-label={`Select ${task.title}`}
-                    className="mt-1"
-                  />
-                  <Checkbox
-                    checked={task.completed}
-                    onCheckedChange={() => toggleTask(task.id, task.completed)}
-                    aria-label={`Mark ${task.title} as ${task.completed ? 'incomplete' : 'complete'}`}
-                    className="mt-1"
-                  />
-                </div>
+                <Checkbox
+                  checked={selectedTasks.has(task.id)}
+                  onCheckedChange={() => toggleTaskSelection(task.id)}
+                  aria-label={`Select ${task.title}`}
+                  className="mt-1"
+                />
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    {pinnedTasks.has(task.id) && (
-                      <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
-                    )}
-                    <h3 className={`font-semibold text-white ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
+                    <button
+                      onClick={() => toggleTask(task.id, task.completed)}
+                      className={`font-semibold text-white hover:underline cursor-pointer ${task.completed ? 'line-through text-muted-foreground' : ''}`}
+                    >
                       {task.title}
-                    </h3>
+                    </button>
                     {task.due_date && new Date(task.due_date) < new Date() && !task.completed && (
                       <Badge variant="destructive" className="text-xs">Overdue</Badge>
                     )}
@@ -1019,16 +1041,6 @@ const Tasks = () => {
               </div>
               {user?.id === task.user_id && (
                 <div className="flex gap-2">
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => togglePin(task.id)}
-                    aria-label={pinnedTasks.has(task.id) ? "Unpin task" : "Pin task"}
-                    className="hover:bg-yellow-500/20 transition-colors"
-                    title={pinnedTasks.has(task.id) ? "Unpin" : "Pin to top"}
-                  >
-                    <Star className={`h-5 w-5 ${pinnedTasks.has(task.id) ? 'fill-yellow-500 text-yellow-500' : 'text-muted-foreground'}`} />
-                  </Button>
                   <Button
                     size="icon"
                     variant="ghost"

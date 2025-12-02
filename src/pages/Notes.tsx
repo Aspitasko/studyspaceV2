@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import useAutoSave from '@/hooks/use-auto-save';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { Button } from '@/components/ui/button';
@@ -9,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, FileText, Trash2, Bold, Italic, Underline, List, ChevronDown, Paperclip, X, Download, ClipboardCopy, Edit, Filter, ArrowUpDown, BookOpen, Star, Download as DownloadIcon, CheckSquare } from 'lucide-react';
+import { Plus, FileText, Trash2, Bold, Italic, Underline, List, ChevronDown, Paperclip, X, Download, ClipboardCopy, Edit, Filter, ArrowUpDown, BookOpen, Download as DownloadIcon, CheckSquare } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { uploadFile, deleteFile, getFileUrl, formatFileSize, getFileIcon, isImageFile, getImagePreview, MAX_UPLOAD_SIZE } from '@/lib/file-upload';
 import {
@@ -139,9 +140,15 @@ const Notes = () => {
   const [sortBy, setSortBy] = useState<'created' | 'title' | 'subject'>('created');
   const [selectedSubject, setSelectedSubject] = useState<string>('all');
   const [selectedNotes, setSelectedNotes] = useState<Set<string>>(new Set());
-  const [pinnedNotes, setPinnedNotes] = useState<Set<string>>(new Set());
   const contentRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Autosave drafts for Create Note and Edit Note
+  const createDraftKey = `draft:note:create:${user?.id || 'anon'}`;
+  const { hasDraft: hasCreateDraft, lastSavedAt: createSavedAt, restore: restoreCreateDraft, clear: clearCreateDraft } = useAutoSave(createDraftKey, { title, content, subject, isPublic }, { wait: 1000, shouldSave: (v) => Boolean(v && ((v.title && v.title.trim()) || (v.content && v.content.trim()))) });
+
+  const editDraftKey = editingNote ? `draft:note:edit:${editingNote.id}` : `draft:note:edit:noop`;
+  const { hasDraft: hasEditDraft, lastSavedAt: editSavedAt, restore: restoreEditDraft, clear: clearEditDraft } = useAutoSave(editDraftKey, { editTitle, editContent, editSubject, editIsPublic }, { wait: 1000, shouldSave: (v) => Boolean(v && ((v.editTitle && v.editTitle.trim()) || (v.editContent && v.editContent.trim()))) });
 
   // Memoized filtered and sorted notes
   const filteredAndSortedNotes = useMemo(() => {
@@ -160,13 +167,7 @@ const Notes = () => {
     });
 
     filtered.sort((a, b) => {
-      // Pinned notes always come first
-      const aPinned = pinnedNotes.has(a.id);
-      const bPinned = pinnedNotes.has(b.id);
-      if (aPinned && !bPinned) return -1;
-      if (!aPinned && bPinned) return 1;
-      
-      // Then apply regular sorting
+      // Apply regular sorting
       if (sortBy === 'title') {
         return a.title.localeCompare(b.title);
       } else if (sortBy === 'subject') {
@@ -177,7 +178,7 @@ const Notes = () => {
     });
 
     return filtered;
-  }, [notes, searchQuery, filterBy, sortBy, selectedSubject, user?.id, pinnedNotes]);
+  }, [notes, searchQuery, filterBy, sortBy, selectedSubject, user?.id]);
 
   // Get unique subjects for filter
   const uniqueSubjects = useMemo(() => {
@@ -211,8 +212,10 @@ const Notes = () => {
       if (profile) setIsAdmin(profile.is_admin);
     };
 
-    checkSettings();
-  }, [user]);
+    if (user?.id) {
+      checkSettings();
+    }
+  }, [user?.id]);
 
   const handleDeleteNote = async (id: string) => {
     const { error } = await supabase.from('notes').delete().eq('id', id);
@@ -272,20 +275,6 @@ const Notes = () => {
       setSelectedNotes(new Set());
       fetchNotes();
     }
-  };
-
-  // Pin/Unpin notes
-  const togglePinNote = (noteId: string) => {
-    const newPinned = new Set(pinnedNotes);
-    if (newPinned.has(noteId)) {
-      newPinned.delete(noteId);
-      toast({ title: 'Note unpinned' });
-    } else {
-      newPinned.add(noteId);
-      toast({ title: 'Note pinned to top' });
-    }
-    setPinnedNotes(newPinned);
-    localStorage.setItem('pinnedNotes', JSON.stringify(Array.from(newPinned)));
   };
 
   // Export functionality
@@ -387,6 +376,8 @@ const Notes = () => {
         description: 'Note updated successfully',
       });
       setEditOpen(false);
+      // clear edit draft after successful update
+      clearEditDraft();
       setEditTitle('');
       setEditContent('');
       setEditSubject('');
@@ -394,6 +385,15 @@ const Notes = () => {
       setEditingNote(null);
       fetchNotes();
     }
+  };
+
+  const formatSavedAt = (ts: number | null) => {
+    if (!ts) return '';
+    const diff = Date.now() - ts;
+    if (diff < 60_000) return `${Math.round(diff / 1000)}s ago`;
+    if (diff < 3_600_000) return `${Math.round(diff / 60_000)}m ago`;
+    if (diff < 86_400_000) return `${Math.round(diff / 3_600_000)}h ago`;
+    return `${Math.round(diff / 86_400_000)}d ago`;
   };
 
   // Formatting functions
@@ -586,22 +586,16 @@ const Notes = () => {
   }, [notesLocked, isAdmin]);
 
   useEffect(() => {
-    fetchNotes();
-  }, [user]);
+    if (user?.id) {
+      fetchNotes();
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     if (selectedNote) {
       fetchNoteAttachments(selectedNote.id);
     }
   }, [selectedNote]);
-
-  // Load pinned notes from localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem('pinnedNotes');
-    if (saved) {
-      setPinnedNotes(new Set(JSON.parse(saved)));
-    }
-  }, []);
 
   const fetchNotes = async () => {
     setLoading(true);
@@ -657,6 +651,8 @@ const Notes = () => {
         description: 'Note created successfully',
       });
       setOpen(false);
+      // Clear draft when note successfully created
+      clearCreateDraft();
       setTitle('');
       setContent('');
       setSubject('');
@@ -680,15 +676,17 @@ const Notes = () => {
               <Badge variant="secondary" className="px-3 py-1">
                 {selectedNotes.size} selected
               </Badge>
-              <Button 
-                size="sm" 
-                variant="destructive" 
-                onClick={bulkDeleteNotes}
-                className="gap-2"
-              >
-                <Trash2 className="h-4 w-4" />
-                Delete
-              </Button>
+              {Array.from(selectedNotes).every(id => notes.find(n => n.id === id)?.user_id === user?.id) && (
+                <Button 
+                  size="sm" 
+                  variant="destructive" 
+                  onClick={bulkDeleteNotes}
+                  className="gap-2"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </Button>
+              )}
             </>
           )}
           <Select onValueChange={(value) => value === 'markdown' ? exportNotesToMarkdown() : exportNotesToJSON()}>
@@ -715,6 +713,23 @@ const Notes = () => {
       {/* Create Note Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
+          {hasCreateDraft && (
+            <div className="mb-3 p-2 bg-yellow-200 rounded flex items-center justify-between">
+              <div className="text-sm">Autosaved draft • {formatSavedAt(createSavedAt)}</div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="ghost" onClick={() => {
+                  const draft = restoreCreateDraft();
+                  if (draft) {
+                    setTitle(draft.title || '');
+                    setContent(draft.content || '');
+                    setSubject(draft.subject || '');
+                    setIsPublic(draft.isPublic ?? true);
+                  }
+                }}>Restore</Button>
+                <Button size="sm" variant="outline" onClick={() => clearCreateDraft()}>Discard</Button>
+              </div>
+            </div>
+          )}
             <DialogHeader>
               <DialogTitle>Create New Note</DialogTitle>
             </DialogHeader>
@@ -899,6 +914,23 @@ const Notes = () => {
         setEditOpen(open);
       }}>
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          {hasEditDraft && (
+            <div className="mb-3 p-2 bg-yellow-200 rounded flex items-center justify-between">
+              <div className="text-sm">Autosaved edit draft • {formatSavedAt(editSavedAt)}</div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="ghost" onClick={() => {
+                  const draft = restoreEditDraft();
+                  if (draft) {
+                    setEditTitle(draft.editTitle || '');
+                    setEditContent(draft.editContent || '');
+                    setEditSubject(draft.editSubject || '');
+                    setEditIsPublic(draft.editIsPublic ?? true);
+                  }
+                }}>Restore</Button>
+                <Button size="sm" variant="outline" onClick={() => clearEditDraft()}>Discard</Button>
+              </div>
+            </div>
+          )}
           <DialogHeader>
             <DialogTitle>Edit Note</DialogTitle>
           </DialogHeader>
@@ -1030,7 +1062,7 @@ const Notes = () => {
               key={note.id} 
               className={`shadow-card hover:shadow-card-hover transition-smooth cursor-pointer group overflow-hidden max-w-full ${
                 selectedNotes.has(note.id) ? 'ring-2 ring-accent' : ''
-              } ${pinnedNotes.has(note.id) ? 'border-t-4 border-t-yellow-500' : ''}`}
+              }`}
               onClick={() => !selectedNotes.has(note.id) && setSelectedNote(note)}
             >
               <CardHeader className="flex flex-col items-start justify-start gap-2 w-full overflow-hidden">
@@ -1045,9 +1077,6 @@ const Notes = () => {
                     />
                     <div className="flex-1 min-w-0">
                       <CardTitle className="flex items-center gap-2">
-                        {pinnedNotes.has(note.id) && (
-                          <Star className="h-4 w-4 fill-yellow-500 text-yellow-500 flex-shrink-0" />
-                        )}
                         <FileText className="h-5 w-5 text-accent flex-shrink-0" />
                         <span className="break-words">{note.title}</span>
                       </CardTitle>
@@ -1058,20 +1087,6 @@ const Notes = () => {
                   </div>
                   {user?.id === note.user_id && (
                     <div className="flex gap-2 flex-shrink-0">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          togglePinNote(note.id);
-                        }}
-                        aria-label={pinnedNotes.has(note.id) ? "Unpin note" : "Pin note"}
-                        className="hover:bg-yellow-500/20 transition-colors"
-                        title={pinnedNotes.has(note.id) ? "Unpin" : "Pin to top"}
-                      >
-                        <Star className={`h-4 w-4 ${pinnedNotes.has(note.id) ? 'fill-yellow-500 text-yellow-500' : 'text-muted-foreground'}`} />
-                      </Button>
                       <Button
                         size="icon"
                         variant="ghost"

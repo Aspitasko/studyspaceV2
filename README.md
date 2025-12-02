@@ -61,6 +61,7 @@
 ### UI/UX Improvements
 ✅ **Task Card Text** - White text on blue backgrounds for better readability  
 ✅ **Dialog Scrolling** - Long forms now properly scroll to show all fields  
+✅ **Auto-save drafts** - Notes and Tasks now autosave drafts locally; drafts can be restored or discarded in create/edit dialogs
 
 ---
 
