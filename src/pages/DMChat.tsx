@@ -7,6 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Send, LogOut, Trash2, AlertCircle } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,7 +26,8 @@ export default function DMChat() {
   const { userId } = useParams();
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState('');
-  const [friend, setFriend] = useState<{ username: string; email: string } | null>(null);
+  const [friend, setFriend] = useState<{ username: string; email: string; avatar_url: string | null } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ username: string; avatar_url: string | null } | null>(null);
   const [error, setError] = useState('');
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -36,7 +38,7 @@ export default function DMChat() {
     if (!userId) return;
     supabase
       .from('profiles')
-      .select('username, email')
+      .select('username, email, avatar_url')
       .eq('id', userId)
       .single()
       .then(({ data, error }) => {
@@ -44,6 +46,19 @@ export default function DMChat() {
         else setFriend(data);
       });
   }, [userId]);
+
+  // Fetch current user's profile
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('profiles')
+      .select('username, avatar_url')
+      .eq('id', user.id)
+      .single()
+      .then(({ data }) => {
+        if (data) setCurrentUser(data);
+      });
+  }, [user]);
 
   useEffect(() => {
     if (!user || !userId) return;
@@ -189,9 +204,14 @@ export default function DMChat() {
                 <ArrowLeft className="h-4 w-4" />
               </Button>
               <div>
-                <CardTitle>
-                  {friend ? friend.username : 'Direct Message'}
-                </CardTitle>
+                <button
+                  onClick={() => navigate(`/profile/${userId}`)}
+                  className="hover:underline cursor-pointer"
+                >
+                  <CardTitle className="hover:text-accent transition-colors">
+                    {friend ? friend.username : 'Direct Message'}
+                  </CardTitle>
+                </button>
                 {friend && (
                   <p className="text-sm text-muted-foreground">{friend.email}</p>
                 )}
@@ -238,7 +258,27 @@ export default function DMChat() {
               </div>
             ) : (
               messages.map((msg) => (
-                <div key={msg.id} className={`flex items-end gap-2 ${msg.from_user_id === user?.id ? 'flex-row-reverse' : 'flex-row'}`}>
+                <div key={msg.id} className={`flex items-end gap-3 ${msg.from_user_id === user?.id ? 'flex-row-reverse' : 'flex-row'}`}>
+                  {/* Avatar for friend's messages */}
+                  {msg.from_user_id !== user?.id && friend && (
+                    <Avatar className="w-8 h-8 flex-shrink-0">
+                      <AvatarImage src={friend.avatar_url || undefined} />
+                      <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                        {friend.username.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
+                  
+                  {/* Avatar for current user's messages */}
+                  {msg.from_user_id === user?.id && currentUser && (
+                    <Avatar className="w-8 h-8 flex-shrink-0">
+                      <AvatarImage src={currentUser.avatar_url || undefined} />
+                      <AvatarFallback className="bg-accent text-accent-foreground text-sm">
+                        {currentUser.username.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
+                  
                   {msg.from_user_id === user?.id && (
                     <AlertDialog>
                       <AlertDialogTrigger asChild>

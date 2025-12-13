@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 
 export const MAX_UPLOAD_SIZE = 10 * 1024 * 1024; // 10MB
+export const MAX_AVATAR_SIZE = 5 * 1024 * 1024; // 5MB for avatars
 
 interface UploadResult {
   success: boolean;
@@ -10,6 +11,128 @@ interface UploadResult {
   fileType: string;
   error?: string;
 }
+
+/**
+ * Upload an avatar image to Supabase Storage
+ * @param file - Image file to upload
+ * @param userId - User ID for organizing files
+ * @returns Upload result with path or error
+ */
+export const uploadAvatar = async (
+  file: File,
+  userId: string
+): Promise<UploadResult> => {
+  try {
+    // Validate file size (5MB max for avatars)
+    if (file.size > MAX_AVATAR_SIZE) {
+      return {
+        success: false,
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        error: 'Avatar size exceeds 5MB limit',
+      };
+    }
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      return {
+        success: false,
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        error: 'Only JPEG, PNG, WebP, and GIF images are allowed',
+      };
+    }
+
+    // Create a unique file path
+    const timestamp = Date.now();
+    const fileExtension = file.name.split('.').pop() || '';
+    const fileName = `avatar-${timestamp}.${fileExtension}`;
+    const filePath = `${userId}/${fileName}`;
+
+    // Upload to Supabase Storage
+    const { data, error } = await supabase.storage
+      .from('avatars')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: true, // Replace existing avatar
+      });
+
+    if (error) {
+      return {
+        success: false,
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        error: error.message,
+      };
+    }
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('avatars')
+      .getPublicUrl(filePath);
+
+    return {
+      success: true,
+      path: publicUrl,
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+/**
+ * Delete an avatar from Supabase Storage
+ * @param userId - User ID
+ * @returns Success or error
+ */
+export const deleteAvatar = async (
+  userId: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    // List all files in user's avatar folder
+    const { data: files, error: listError } = await supabase.storage
+      .from('avatars')
+      .list(userId);
+
+    if (listError) {
+      return { success: false, error: listError.message };
+    }
+
+    if (!files || files.length === 0) {
+      return { success: true }; // No avatar to delete
+    }
+
+    // Delete all avatar files
+    const filePaths = files.map(file => `${userId}/${file.name}`);
+    const { error: deleteError } = await supabase.storage
+      .from('avatars')
+      .remove(filePaths);
+
+    if (deleteError) {
+      return { success: false, error: deleteError.message };
+    }
+
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
 
 /**
  * Upload a file to Supabase Storage

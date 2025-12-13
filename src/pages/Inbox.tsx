@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Tabs,
   TabsList,
@@ -146,7 +147,7 @@ const formatRelativeTime = (dateString: string) => {
 const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🎉'];
 
 // Avatar component with online indicator
-const UserAvatar = ({ username, isOnline, size = 'md' }: { username: string; isOnline?: boolean; size?: 'sm' | 'md' | 'lg' }) => {
+const UserAvatar = ({ username, avatarUrl, isOnline, size = 'md' }: { username: string; avatarUrl?: string | null; isOnline?: boolean; size?: 'sm' | 'md' | 'lg' }) => {
   const sizeClasses = {
     sm: 'w-8 h-8 text-xs',
     md: 'w-10 h-10 text-sm',
@@ -172,9 +173,12 @@ const UserAvatar = ({ username, isOnline, size = 'md' }: { username: string; isO
   
   return (
     <div className="relative">
-      <div className={`${sizeClasses[size]} rounded-full bg-gradient-to-br ${colors[colorIndex]} flex items-center justify-center font-semibold text-white shadow-lg`}>
-        {username.charAt(0).toUpperCase()}
-      </div>
+      <Avatar className={sizeClasses[size]}>
+        <AvatarImage src={avatarUrl || undefined} />
+        <AvatarFallback className={`bg-gradient-to-br ${colors[colorIndex]} text-white font-semibold`}>
+          {username.charAt(0).toUpperCase()}
+        </AvatarFallback>
+      </Avatar>
       {isOnline !== undefined && (
         <div className={`absolute -bottom-0.5 -right-0.5 ${indicatorSizes[size]} rounded-full ${isOnline ? 'bg-green-500' : 'bg-gray-400'} border-2 border-background`} />
       )}
@@ -747,7 +751,7 @@ export default function Inbox() {
                             }`}
                           >
                             <div className="flex items-start gap-3">
-                              <UserAvatar username={sender.username} isOnline={isOnline} />
+                              <UserAvatar username={sender.username} avatarUrl={sender.avatar_url} isOnline={isOnline} />
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between gap-2 mb-1">
                                   <p className="font-medium text-sm text-foreground truncate">{sender.username}</p>
@@ -807,7 +811,7 @@ export default function Inbox() {
                           }`}
                         >
                           <div className="flex items-center gap-3">
-                            <UserAvatar username={f.username} isOnline={isOnline} />
+                            <UserAvatar username={f.username} avatarUrl={f.avatar_url} isOnline={isOnline} />
                             <div className="flex-1 min-w-0">
                               <span className="font-medium text-sm text-foreground truncate block">{f.username}</span>
                               <span className="text-xs text-muted-foreground">
@@ -850,7 +854,7 @@ export default function Inbox() {
                           className="rounded-2xl border border-border/50 bg-card/50 backdrop-blur-xl p-4"
                         >
                           <div className="flex items-start gap-3 mb-3">
-                            <UserAvatar username={requester.username} />
+                            <UserAvatar username={requester.username} avatarUrl={requester.avatar_url} />
                             <div className="flex-1 min-w-0">
                               <p className="font-medium text-foreground">{requester.username}</p>
                               <p className="text-xs text-muted-foreground">sent a friend request</p>
@@ -906,7 +910,7 @@ export default function Inbox() {
                           className="rounded-2xl border border-border/50 bg-card/50 backdrop-blur-xl p-4"
                         >
                           <div className="flex items-center gap-3 mb-3">
-                            <UserAvatar username={u.username} />
+                            <UserAvatar username={u.username} avatarUrl={u.avatar_url} />
                             <div className="flex-1 min-w-0">
                               <p className="font-medium text-foreground truncate">{u.username}</p>
                               <p className="text-xs text-muted-foreground">
@@ -1017,7 +1021,7 @@ export default function Inbox() {
                         >
                           <ArrowLeft className="w-4 h-4" />
                         </Button>
-                        <UserAvatar username={selectedFriend.username} isOnline={onlineUsers.has(selectedFriend.id)} size="lg" />
+                        <UserAvatar username={selectedFriend.username} avatarUrl={selectedFriend.avatar_url} isOnline={onlineUsers.has(selectedFriend.id)} size="lg" />
                         <div className="min-w-0">
                           <h2 className="font-semibold text-foreground truncate">{selectedFriend.username}</h2>
                           <p className="text-xs text-muted-foreground">
@@ -1116,7 +1120,7 @@ export default function Inbox() {
                                 <div className={`flex flex-col max-w-[75%] gap-1 ${isMine ? 'items-end' : 'items-start'}`}>
                                   <div className="flex items-end gap-2">
                                     {!isMine && (
-                                      <UserAvatar username={selectedFriend.username} size="sm" />
+                                      <UserAvatar username={selectedFriend.username} avatarUrl={selectedFriend.avatar_url} size="sm" />
                                     )}
                                     <div
                                       className={`relative px-4 py-2.5 rounded-2xl shadow-sm ${
@@ -1244,7 +1248,7 @@ export default function Inbox() {
                           className="flex justify-start"
                         >
                           <div className="flex items-center gap-2">
-                            <UserAvatar username={selectedFriend.username} size="sm" />
+                            <UserAvatar username={selectedFriend.username} avatarUrl={selectedFriend.avatar_url} size="sm" />
                             <div className="px-4 py-2.5 rounded-2xl bg-card border border-border/50 rounded-bl-md">
                               <div className="flex items-center gap-1.5">
                                 <div className="flex gap-1">

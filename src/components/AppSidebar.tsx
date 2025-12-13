@@ -1,4 +1,4 @@
-import { Home, FileText, CheckSquare, MessageCircle, Trophy, Inbox, LogOut, Users, Video, Clock, PenTool } from 'lucide-react';
+import { Home, FileText, CheckSquare, MessageCircle, Trophy, Inbox, LogOut, Users, Video, Clock, PenTool, Settings as SettingsIcon, UserCircle } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from './AuthProvider';
@@ -29,6 +29,11 @@ const items = [
   { title: 'Inbox', url: '/inbox', icon: Inbox },
 ];
 
+const profileItems = [
+  { title: 'My Profile', url: '/profile/me', icon: UserCircle },
+  { title: 'Settings', url: '/settings', icon: SettingsIcon },
+];
+
 export function AppSidebar() {
   const { state } = useSidebar();
   const location = useLocation();
@@ -53,6 +58,29 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild>
+                    <NavLink
+                      to={item.url}
+                      end
+                      className="hover:bg-sidebar-accent transition-smooth"
+                      activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                    >
+                      <item.icon className="h-4 w-4" />
+                      {!collapsed && <span>{item.title}</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel className={collapsed ? 'sr-only' : ''}>Account</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {profileItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink

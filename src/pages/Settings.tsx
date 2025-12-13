@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
@@ -8,23 +8,36 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { ChevronLeft, Lock, User, Palette, Shield } from 'lucide-react';
+import { ChevronLeft, Lock, User, Palette, Shield, Upload, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { uploadAvatar } from '@/lib/file-upload';
 
 const Settings = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { currentTheme, changeTheme } = useThemeManager();
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [username, setUsername] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [bio, setBio] = useState('');
+  const [location, setLocation] = useState('');
+  const [website, setWebsite] = useState('');
+  const [github, setGithub] = useState('');
+  const [twitter, setTwitter] = useState('');
+  const [linkedin, setLinkedin] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isPublic, setIsPublic] = useState(true);
   const [loadingUsername, setLoadingUsername] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [loadingAvatar, setLoadingAvatar] = useState(false);
   const [loadingPassword, setLoadingPassword] = useState(false);
   const [loadingPrivacy, setLoadingPrivacy] = useState(false);
 
@@ -34,13 +47,20 @@ const Settings = () => {
 
       const { data, error } = await supabase
         .from('profiles')
-        .select('username, is_public')
+        .select('username, is_public, avatar_url, bio, location, website, github, twitter, linkedin')
         .eq('id', user.id)
         .single();
 
       if (!error && data) {
         setUsername(data.username);
         setIsPublic(data.is_public ?? true);
+        setAvatarUrl(data.avatar_url || '');
+        setBio(data.bio || '');
+        setLocation(data.location || '');
+        setWebsite(data.website || '');
+        setGithub(data.github || '');
+        setTwitter(data.twitter || '');
+        setLinkedin(data.linkedin || '');
       }
     };
 
@@ -207,6 +227,107 @@ const Settings = () => {
     }
   };
 
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    setLoadingAvatar(true);
+    try {
+      const result = await uploadAvatar(file, user.id);
+
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+
+      // Update profile with new avatar URL
+      const { error } = await supabase
+        .from('profiles')
+        .update({ avatar_url: result.path })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      setAvatarUrl(result.path || '');
+      toast({
+        title: 'Success',
+        description: 'Avatar updated successfully',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to upload avatar',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingAvatar(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (!user) return;
+
+    setLoadingAvatar(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ avatar_url: null })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      setAvatarUrl('');
+      toast({
+        title: 'Success',
+        description: 'Avatar removed successfully',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to remove avatar',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingAvatar(false);
+    }
+  };
+
+  const handleProfileUpdate = async () => {
+    if (!user) return;
+
+    setLoadingProfile(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          bio: bio.trim() || null,
+          location: location.trim() || null,
+          website: website.trim() || null,
+          github: github.trim() || null,
+          twitter: twitter.trim() || null,
+          linkedin: linkedin.trim() || null,
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'Profile updated successfully',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to update profile',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
+
   const THEMES = [
     {
       id: 'default',
@@ -358,6 +479,51 @@ const Settings = () => {
         <TabsContent value="profile" className="space-y-4">
           <Card>
             <CardHeader>
+              <CardTitle>Profile Picture</CardTitle>
+              <CardDescription>Upload or change your avatar (Max 5MB)</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-4">
+                <Avatar className="w-20 h-20">
+                  <AvatarImage src={avatarUrl} />
+                  <AvatarFallback>{username.charAt(0).toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={loadingAvatar}
+                    variant="outline"
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    {loadingAvatar ? 'Uploading...' : 'Upload'}
+                  </Button>
+                  {avatarUrl && (
+                    <Button
+                      onClick={handleRemoveAvatar}
+                      disabled={loadingAvatar}
+                      variant="outline"
+                    >
+                      <X className="w-4 h-4 mr-2" />
+                      Remove
+                    </Button>
+                  )}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    onChange={handleAvatarUpload}
+                    className="hidden"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Recommended: Square image, at least 200x200px. Supports JPG, PNG, WebP, GIF
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle>Username</CardTitle>
               <CardDescription>Change your username</CardDescription>
             </CardHeader>
@@ -373,6 +539,84 @@ const Settings = () => {
               </div>
               <Button onClick={handleUsernameChange} disabled={loadingUsername}>
                 {loadingUsername ? 'Updating...' : 'Update Username'}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Bio & Info</CardTitle>
+              <CardDescription>Tell others about yourself</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="bio">Bio</Label>
+                <Textarea
+                  id="bio"
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  placeholder="Write a short bio about yourself..."
+                  rows={3}
+                  maxLength={500}
+                />
+                <p className="text-xs text-muted-foreground">{bio.length}/500 characters</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="location">Location</Label>
+                <Input
+                  id="location"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  placeholder="e.g. San Francisco, CA"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="website">Website</Label>
+                <Input
+                  id="website"
+                  type="url"
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  placeholder="https://yourwebsite.com"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="github">GitHub</Label>
+                  <Input
+                    id="github"
+                    value={github}
+                    onChange={(e) => setGithub(e.target.value)}
+                    placeholder="username"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="twitter">Twitter/X</Label>
+                  <Input
+                    id="twitter"
+                    value={twitter}
+                    onChange={(e) => setTwitter(e.target.value)}
+                    placeholder="@username"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="linkedin">LinkedIn</Label>
+                  <Input
+                    id="linkedin"
+                    value={linkedin}
+                    onChange={(e) => setLinkedin(e.target.value)}
+                    placeholder="username"
+                  />
+                </div>
+              </div>
+
+              <Button onClick={handleProfileUpdate} disabled={loadingProfile}>
+                {loadingProfile ? 'Updating...' : 'Update Profile Info'}
               </Button>
             </CardContent>
           </Card>

@@ -22,6 +22,7 @@ import DMChat from "./pages/DMChat";
 import DMList from "./pages/DMList";
 import UserDiscovery from "./pages/UserDiscovery";
 import PublicProfiles from "./pages/PublicProfiles";
+import Profile from "./pages/Profile";
 import StudyRooms from "./pages/StudyRooms";
 import StudyRoom from "./pages/StudyRoom";
 import PomodoroTimer from "./pages/PomodoroTimer";
@@ -172,6 +173,16 @@ const App = () => {
                 <ProtectedRoute>
                   <DashboardLayout>
                     <UserDiscovery />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile/:userId"
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <Profile />
                   </DashboardLayout>
                 </ProtectedRoute>
               }

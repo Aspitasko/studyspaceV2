@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MessageSquarePlus, MessageCircle, LogOut, Trash2 } from 'lucide-react';
 import {
   AlertDialog,
@@ -21,6 +22,7 @@ interface Conversation {
   id: string;
   username: string;
   email: string;
+  avatar_url: string | null;
   lastMessage?: string;
   lastMessageTime?: string;
   unreadCount?: number;
@@ -163,20 +165,28 @@ export default function DMList() {
                 >
                   <Link
                     to={`/dms/${conversation.id}`}
-                    className="flex-1"
+                    className="flex-1 flex items-start gap-3"
                   >
-                    <div className="flex justify-between items-start mb-1">
-                      <h3 className="font-semibold">{conversation.username}</h3>
-                      <span className="text-xs text-muted-foreground">
-                        {formatTime(conversation.lastMessageTime)}
-                      </span>
+                    <Avatar className="w-10 h-10 flex-shrink-0 mt-1">
+                      <AvatarImage src={conversation.avatar_url || undefined} />
+                      <AvatarFallback className="bg-primary text-primary-foreground">
+                        {conversation.username.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start mb-1">
+                        <h3 className="font-semibold truncate">{conversation.username}</h3>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
+                          {formatTime(conversation.lastMessageTime)}
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground truncate">
+                        {conversation.email}
+                      </p>
+                      <p className="text-sm text-muted-foreground truncate mt-1">
+                        {conversation.lastMessage}
+                      </p>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      {conversation.email}
-                    </p>
-                    <p className="text-sm text-muted-foreground truncate mt-1">
-                      {conversation.lastMessage}
-                    </p>
                   </Link>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>

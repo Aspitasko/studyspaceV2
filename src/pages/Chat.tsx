@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { Button } from '@/components/ui/button';
@@ -7,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Send, Trash2, MessageCircle, Lock } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface ChatMessage {
   id: string;
@@ -14,6 +16,7 @@ interface ChatMessage {
   created_at: string;
   profiles: {
     username: string;
+    avatar_url: string | null;
   };
   user_id: string;
 }
@@ -51,6 +54,7 @@ const formatTime = (dateString: string) => {
 
 const Chat = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
@@ -130,7 +134,7 @@ const Chat = () => {
       .from('chat_messages')
       .select(`
         *,
-        profiles (username)
+        profiles (username, avatar_url)
       `)
       .order('created_at', { ascending: true });
 
@@ -243,18 +247,24 @@ const Chat = () => {
                     >
                       {/* Avatar */}
                       <div className={`w-8 flex-shrink-0 ${showAvatar ? '' : 'invisible'}`}>
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium ${getAvatarColor(message.profiles.username)}`}>
-                          {message.profiles.username.charAt(0).toUpperCase()}
-                        </div>
+                        <Avatar className="w-8 h-8">
+                          <AvatarImage src={message.profiles.avatar_url || undefined} />
+                          <AvatarFallback className={`text-white text-sm font-medium ${getAvatarColor(message.profiles.username)}`}>
+                            {message.profiles.username.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
                       </div>
 
                       {/* Message Content */}
                       <div className={`flex flex-col max-w-[70%] ${isOwn ? 'items-end' : 'items-start'}`}>
                         {showAvatar && (
                           <div className={`flex items-center gap-2 mb-1 ${isOwn ? 'flex-row-reverse' : ''}`}>
-                            <span className="text-sm font-medium text-foreground">
+                            <button 
+                              onClick={() => navigate(`/profile/${message.user_id}`)}
+                              className="text-sm font-medium text-foreground hover:text-accent transition-colors hover:underline cursor-pointer"
+                            >
                               {message.profiles.username}
-                            </span>
+                            </button>
                             <span className="text-xs text-muted-foreground">
                               {formatTime(message.created_at)}
                             </span>
